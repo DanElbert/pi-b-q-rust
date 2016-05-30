@@ -1,0 +1,6 @@
+[package]
+name = "pi-b-q-rust"
+version = "0.1.0"
+authors = ["Dan Elbert <dan.elbert@gmail.com>"]
+
+[dependencies]
