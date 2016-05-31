@@ -20,10 +20,14 @@ pub fn word_in(value: u16, buffer: &mut [u8]) {
 }
 
 pub fn string_out(data: &[u8]) -> String {
-    match str::from_utf8(data) {
-        Ok(value) => value.to_string(),
-        Err(_) => "".to_string()
+    let mut value = String::new();
+    for x in 0 .. data.len() {
+        if data[x] != 0 {
+            value.push(data[x] as char);
+        }
     }
+
+    value
 }
 
 pub fn string_in(value: &str, buffer: &mut [u8]) {
