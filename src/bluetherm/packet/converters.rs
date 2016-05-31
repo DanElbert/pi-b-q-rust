@@ -1,4 +1,6 @@
 use std::str;
+use super::data_flags;
+use super::message_type;
 
 pub fn noop_out(data: &[u8]) -> u8 {
     data[0]
@@ -51,8 +53,50 @@ pub fn temperature_out(data: &[u8]) -> f32 {
 
     if int_value < 0xFFFFFFFD {
         value = int_value as f32;
-        value = (value / 300_000.0f32) - 300.0f32;
+        value = (value / 100_000.0f32) - 300.0f32;
     }
 
     value
+}
+
+pub fn temperature_in(value: f32, buffer: &mut [u8]) {
+    let int_value: u32 = ((value + 300.0f32) * 100_000.0f32) as u32;
+    buffer[0] = (int_value & 0xFF) as u8;
+    buffer[1] = ((int_value >> 8) & 0xFF) as u8;
+    buffer[2] = ((int_value >> 16) & 0xFF) as u8;
+    buffer[3] = ((int_value >> 24) & 0xFF) as u8;
+}
+
+pub fn data_flags_out(data: &[u8]) -> data_flags::DataFlags {
+    let word = word_out(data);
+    match data_flags::DataFlags::from_bits(word) {
+        Some(flags) => flags,
+        None => data_flags::NONE
+    }
+}
+
+pub fn data_flags_in(value: data_flags::DataFlags, buffer: &mut [u8]) {
+    word_in(value.raw_bits(), buffer);
+}
+
+pub fn battery_out(data: &[u8]) -> f32 {
+    let word = word_out(data);
+    (word as f32) / 1000.0f32
+}
+
+pub fn battery_in(value: f32, buffer: &mut [u8]) {
+    let word = (value * 1000.0f32) as u16;
+    word_in(word, buffer);
+}
+
+pub fn message_type_out(data: &[u8]) -> message_type::MessageType {
+    let byte = data[0];
+    match message_type::MessageType::from_bits(byte) {
+        Some(m_type) => m_type,
+        None => message_type::NOTHING
+    }
+}
+
+pub fn message_type_in(value: message_type::MessageType, buffer: &mut [u8]) {
+    buffer[0] = value.raw_bits();
 }

@@ -8,7 +8,7 @@ fn main() {
     let mut cid = p.get_command_id();
     println!("{}", cid);
 
-    p.set_command_id(12);
+    p.set_command_id(bluetherm::message_type::RETRIEVE_INFO);
     cid = p.get_command_id();
     println!("{}", cid);
 
