@@ -1,5 +1,6 @@
 
 mod packet;
+mod connection;
 
 pub use self::packet::data_flags;
 pub use self::packet::message_type;

@@ -5,3 +5,4 @@ authors = ["Dan Elbert <dan.elbert@gmail.com>"]
 
 [dependencies]
 bitflags = "*"
+serial = "0.3.3"
