@@ -2,7 +2,21 @@
 name = "pi-b-q-rust"
 version = "0.1.0"
 authors = ["Dan Elbert <dan.elbert@gmail.com>"]
+publish = false
+
+[lib]
+name = "pibq"
+path = "src/lib.rs"
+
+[[bin]]
+name = "web"
+path = "src/web.rs"
+
+[[bin]]
+name = "harvester"
+path = "src/harvester.rs"
 
 [dependencies]
 bitflags = "*"
 libc = "*"
+nonblock = "0.1.0"

@@ -1,5 +1,5 @@
-extern crate pi_b_q_rust;
-use pi_b_q_rust::bluetherm;
+extern crate pibq;
+use pibq::bluetherm;
 
 #[test]
 fn test_command_id() {

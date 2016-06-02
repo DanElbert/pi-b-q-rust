@@ -4,11 +4,12 @@ mod converters;
 pub mod data_flags;
 pub mod message_type;
 
+use std::cmp;
+use std::fmt;
+
 pub struct Packet {
   pub data: [u8; 128]
 }
-
-
 
 impl Packet {
 
@@ -23,6 +24,14 @@ impl Packet {
       p.set_data_flags(data_flags::DEFAULT);
       p.apply_checksum();
       p
+  }
+
+  pub fn from_bytes(bytes: &[u8]) -> Packet {
+      let mut data = [0u8; 128];
+      for x in 0 .. (cmp::min(data.len(), bytes.len())) {
+          data[x] = bytes[x];
+      }
+      Packet { data: data }
   }
 
   pub fn calculate_checksum(&self) -> u16 {
@@ -112,4 +121,17 @@ impl Packet {
     converter(value, chunk);
   }
 
+}
+
+impl fmt::Display for Packet {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        try!(write!(f, "Packet<"));
+
+        for i in 0 .. self.data.len() {
+            if i != 0 { try!(write!(f, ":")); }
+            try!(write!(f, "{}", self.data[i]));
+        }
+
+        write!(f, ">")
+    }
 }

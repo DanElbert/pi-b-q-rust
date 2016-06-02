@@ -1,87 +1,169 @@
-
 use std::fs;
-use libc;
+use std::fmt;
 use std::io;
 use std::io::prelude::*;
 use std::sync::{Arc, Mutex};
 use std::sync::mpsc::{channel, Sender, Receiver};
 use std::thread;
-use std::os::unix::fs::OpenOptionsExt;
+use std::time::{Duration, Instant};
+
+use nonblock::NonBlockingReader;
 use super::Packet;
 
 pub enum ConnectionEvent {
-    Data(Packet),
-    Timeout
+    Packet(Packet),
+    InvalidPacket(Packet),
+    ReadError(io::Error),
+    BadData(Vec<u8>)
 }
 
-struct ThreadShare {
-    signal: bool,
-    tty_handle: fs::File
+impl fmt::Display for ConnectionEvent {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            &ConnectionEvent::Packet(ref p) => write!(f, "{}", p),
+            &ConnectionEvent::InvalidPacket(ref p) => write!(f, "Invalid! {}", p),
+            &ConnectionEvent::ReadError(ref err) => write!(f, "ERROR! [{}]", err),
+            &ConnectionEvent::BadData(ref data) => write!(f, "BAD DATA! [{:?}]", data)
+        }
+    }
 }
 
 pub struct Connection<'a> {
     pub tty_path: &'a str,
-    packet_reciever: Receiver<ConnectionEvent>,
-    thread_share: Arc<Mutex<ThreadShare>>,
-    thread_handle: Option<thread::JoinHandle<()>>
+    tty_writer: fs::File,
+    kill_thread_signal: Arc<Mutex<bool>>,
+    processor_thread_handle: Option<thread::JoinHandle<()>>,
+    reader_thread_handle: Option<thread::JoinHandle<()>>,
 }
 
 impl<'a> Connection<'a> {
     pub fn new(tty_path: &str) -> io::Result<Connection> {
         let (tx, rx) = channel::<ConnectionEvent>();
 
-        let handle = try!(fs::OpenOptions::new()
+        let kill_signal = Arc::new(Mutex::new(false));
+
+        println!("here? 1");
+
+        let tty_reader = try!(fs::OpenOptions::new()
+                        .create(false)
                         .read(true)
-                        .append(true)
-                        //.custom_flags(libc::O_NOCTTY)
+                        .write(false)
                         .open(tty_path));
 
-        let signal = false;
+        println!("here? 2");
 
-        let thread_share = Arc::new(Mutex::new(ThreadShare {
-            signal: signal,
-            tty_handle: handle
-        }));
+        let tty_writer = try!(fs::OpenOptions::new()
+                        .create(false)
+                        .read(false)
+                        .write(true)
+                        .open(tty_path));
 
-        let inner_share = thread_share.clone();
+        println!("here? 3");
 
+        let nonblocking_reader = NonBlockingReader::from_fd(tty_reader).expect("error creating non-blocking reader");
 
-        let thread = Some(thread::spawn(move || {
-            loop {
-                let mut share = inner_share.lock().expect("something bad");
-                let mut buf = [0u8; 128];
-                share.tty_handle.read_exact(&mut buf).expect("No Reading");
-
-                if share.signal {
-                    break;
-                }
-            }
-            ()
-        }));
+        let reader_thread = build_connection_read_thread(nonblocking_reader, tx, kill_signal.clone());
+        let processor_thread = build_processor_thread(rx, kill_signal.clone());
 
         Ok(Connection {
             tty_path: tty_path,
-            packet_reciever: rx,
-            thread_handle: thread,
-            thread_share: thread_share})
+            tty_writer: tty_writer,
+            kill_thread_signal: kill_signal,
+            processor_thread_handle: Some(processor_thread),
+            reader_thread_handle: Some(reader_thread)
+        })
     }
 
     pub fn send(&mut self, p: &Packet) -> io::Result<usize> {
-        let mut share = self.thread_share.lock().expect("Bad File");
-        share.tty_handle.write(&p.data[..])
+        self.tty_writer.write(&p.data[..])
     }
 }
 
 impl<'a> Drop for Connection<'a> {
     fn drop(&mut self) {
+
         {
-            let mut share = self.thread_share.lock().expect("Bad File");
-            share.signal = true;
+            *self.kill_thread_signal.lock().unwrap() = true;
         }
 
-        match self.thread_handle.take() {
-            Some(th) => th.join().expect("thread was bad"),
+        match self.reader_thread_handle.take() {
+            Some(th) => {
+                th.join().expect("thread was bad")
+            },
+            None => {}
+        }
+
+        match self.processor_thread_handle.take() {
+            Some(th) => {
+                th.join().expect("thread was bad")
+            },
             None => {}
         }
     }
+}
+
+fn build_processor_thread(receiver: Receiver<ConnectionEvent>, kill_signal: Arc<Mutex<bool>>) -> thread::JoinHandle<()> {
+    thread::spawn(move || {
+        while !*kill_signal.lock().unwrap() {
+            match receiver.recv() {
+                Err(_) => {
+                    println!("reciever is busted");
+                    break;
+                },
+                Ok(evt) => {
+                    println!("Got: {}", evt);
+                }
+            }
+        }
+        ()
+    })
+}
+
+fn build_connection_read_thread(mut reader: NonBlockingReader<fs::File>, sender: Sender<ConnectionEvent>, kill_signal: Arc<Mutex<bool>>) -> thread::JoinHandle<()> {
+    thread::spawn(move || {
+        let mut packet_buffer: Vec<u8> = Vec::new();
+        let mut read_buffer: Vec<u8> = Vec::new();
+        let mut last_read = Instant::now();
+
+        while !*kill_signal.lock().unwrap() {
+
+            if packet_buffer.len() > 0 && last_read.elapsed().as_secs() > 2 {
+                let evt = ConnectionEvent::BadData(packet_buffer.clone());
+                sender.send(evt).unwrap();
+                packet_buffer.clear();
+            }
+
+            read_buffer.clear();
+
+            match reader.read_available(&mut read_buffer) {
+                Err(e) => {
+                    let evt = ConnectionEvent::ReadError(e);
+                    sender.send(evt).unwrap();
+                },
+                Ok(bytes) if bytes > 0 => {
+                    last_read = Instant::now();
+                    for x in 0 .. bytes {
+                        packet_buffer.push(read_buffer[x]);
+                    }
+                }
+                Ok(_) => {} // do nothing for 0 bytes read
+            }
+
+            while packet_buffer.len() >= 128 {
+                let data: Vec<u8> = packet_buffer.drain(0..128).collect();
+                let p = Packet::from_bytes(&data);
+
+                if p.is_checksum_valid() {
+                    let evt = ConnectionEvent::Packet(p);
+                    sender.send(evt).unwrap();
+                } else {
+                    let evt = ConnectionEvent::InvalidPacket(p);
+                    sender.send(evt).unwrap();
+                }
+            }
+
+            thread::sleep(Duration::from_millis(200));
+        }
+        ()
+    })
 }
