@@ -5,7 +5,7 @@ use std::fmt;
 use std::io;
 use std::io::prelude::*;
 use std::sync::{Arc, Mutex};
-use std::sync::mpsc::{channel, Sender, Receiver};
+use std::sync::mpsc::{channel, Sender, Receiver, TryRecvError};
 use std::thread;
 use std::time::{Duration, Instant};
 use std::ops::Deref;
@@ -18,7 +18,8 @@ pub enum ConnectionEvent {
     Packet(Packet),
     InvalidPacket(Packet),
     ReadError(io::Error),
-    BadData(Vec<u8>)
+    BadData(Vec<u8>),
+    Heartbeat
 }
 
 impl fmt::Display for ConnectionEvent {
@@ -27,7 +28,8 @@ impl fmt::Display for ConnectionEvent {
             &ConnectionEvent::Packet(ref p) => write!(f, "{}", p),
             &ConnectionEvent::InvalidPacket(ref p) => write!(f, "Invalid! {}", p),
             &ConnectionEvent::ReadError(ref err) => write!(f, "ERROR! [{}]", err),
-            &ConnectionEvent::BadData(ref data) => write!(f, "BAD DATA! [{:?}]", data)
+            &ConnectionEvent::BadData(ref data) => write!(f, "BAD DATA! [{:?}]", data),
+            &ConnectionEvent::Heartbeat => write!(f, "Tick Tock")
         }
     }
 }
@@ -35,18 +37,17 @@ impl fmt::Display for ConnectionEvent {
 pub struct Connection<'a> {
     pub tty_path: &'a str,
     tty_writer: fs::File,
+    receiver: Receiver<ConnectionEvent>,
     kill_thread_signal: Arc<Mutex<bool>>,
-    processor_thread_handle: Option<ThreadHandle<()>>,
+    //processor_thread_handle: Option<ThreadHandle<()>>,
     reader_thread_handle: Option<ThreadHandle<()>>,
 }
 
 impl<'a> Connection<'a> {
-    pub fn new(tty_path: &str) -> io::Result<Connection> {
+    pub fn new(tty_path: &str, heartbeat_milliseconds: Option<u64>) -> io::Result<Connection> {
         let (tx, rx) = channel::<ConnectionEvent>();
 
         let kill_signal = Arc::new(Mutex::new(false));
-
-        println!("here? 1");
 
         let tty_reader = try!(fs::OpenOptions::new()
                         .create(false)
@@ -54,46 +55,74 @@ impl<'a> Connection<'a> {
                         .write(false)
                         .open(tty_path));
 
-        println!("here? 2");
-
         let tty_writer = try!(fs::OpenOptions::new()
                         .create(false)
                         .read(false)
                         .write(true)
                         .open(tty_path));
 
-        println!("here? 3");
-
         let nonblocking_reader = NonBlockingReader::from_fd(tty_reader).expect("error creating non-blocking reader");
 
-        let reader_thread = build_connection_read_thread(nonblocking_reader, tx, kill_signal.clone());
-        let processor_thread = build_processor_thread(rx, kill_signal.clone());
+        let reader_thread = build_connection_read_thread(nonblocking_reader, tx, heartbeat_milliseconds, kill_signal.clone());
+        //let processor_thread = build_processor_thread(rx, kill_signal.clone());
 
         Ok(Connection {
             tty_path: tty_path,
             tty_writer: tty_writer,
+            receiver: rx,
             kill_thread_signal: kill_signal,
-            processor_thread_handle: Some(processor_thread),
+            //processor_thread_handle: Some(processor_thread),
             reader_thread_handle: Some(reader_thread)
         })
     }
 
     pub fn send(&mut self, p: &Packet) -> io::Result<usize> {
-        self.tty_writer.write(&p.data[..])
+        match self.is_ok() {
+            true => self.tty_writer.write(&p.data[..]),
+            false => Err(io::Error::new(io::ErrorKind::ConnectionAborted, "worker threads have stopped"))
+        }
+    }
+
+    pub fn wait(&self) -> io::Result<ConnectionEvent> {
+        match self.is_ok() {
+            false => Err(io::Error::new(io::ErrorKind::ConnectionAborted, "worker threads have stopped")),
+            true => {
+                Ok(self.receiver.recv().unwrap())
+            }
+        }
+    }
+
+    pub fn get_events(&self) -> io::Result<Vec<ConnectionEvent>> {
+        match self.is_ok() {
+            false => Err(io::Error::new(io::ErrorKind::ConnectionAborted, "worker threads have stopped")),
+            true => {
+                let mut data: Vec<ConnectionEvent> = vec!();
+
+                loop {
+                    match self.receiver.try_recv() {
+                        Ok(evt) => { data.push(evt) },
+                        Err(TryRecvError::Empty) => { break; },
+                        Err(TryRecvError::Disconnected) => { panic!("channels should not disconnect") }
+                    }
+                }
+
+                Ok(data)
+            }
+        }
     }
 
     pub fn is_ok(&self) -> bool {
         let mut ret = true;
 
-        match &self.processor_thread_handle {
-            &Some(ref h) => {
-                ret = ret && match h.status.lock().unwrap().deref() {
-                    &ThreadStatus::Ok => true,
-                    _ => false
-                }
-            },
-            _ => {}
-        }
+        // match &self.processor_thread_handle {
+        //     &Some(ref h) => {
+        //         ret = ret && match h.status.lock().unwrap().deref() {
+        //             &ThreadStatus::Ok => true,
+        //             _ => false
+        //         }
+        //     },
+        //     _ => {}
+        // }
 
         match &self.reader_thread_handle {
             &Some(ref h) => {
@@ -122,36 +151,37 @@ impl<'a> Drop for Connection<'a> {
             None => {}
         }
 
-        match self.processor_thread_handle.take() {
-            Some(th) => {
-                th.handle.join().unwrap();
-            },
-            None => {}
-        }
+        // match self.processor_thread_handle.take() {
+        //     Some(th) => {
+        //         th.handle.join().unwrap();
+        //     },
+        //     None => {}
+        // }
     }
 }
 
-fn build_processor_thread(receiver: Receiver<ConnectionEvent>, kill_signal: Arc<Mutex<bool>>) -> ThreadHandle<()> {
-    guard_thread(move || {
-        while !*kill_signal.lock().unwrap() {
-            match receiver.recv() {
-                Err(_) => {
-                    break;
-                },
-                Ok(evt) => {
-                    println!("Got: {}", evt);
-                }
-            }
-        }
-        ()
-    })
-}
+// fn build_processor_thread(receiver: Receiver<ConnectionEvent>, kill_signal: Arc<Mutex<bool>>) -> ThreadHandle<()> {
+//     guard_thread("processor_thread", move || {
+//         while !*kill_signal.lock().unwrap() {
+//             match receiver.recv() {
+//                 Err(_) => {
+//                     break;
+//                 },
+//                 Ok(evt) => {
+//                     println!("Got: {}", evt);
+//                 }
+//             }
+//         }
+//         ()
+//     })
+// }
 
-fn build_connection_read_thread(mut reader: NonBlockingReader<fs::File>, sender: Sender<ConnectionEvent>, kill_signal: Arc<Mutex<bool>>) -> ThreadHandle<()> {
-    guard_thread(move || {
+fn build_connection_read_thread(mut reader: NonBlockingReader<fs::File>, sender: Sender<ConnectionEvent>, heartbeat: Option<u64>, kill_signal: Arc<Mutex<bool>>) -> ThreadHandle<()> {
+    guard_thread("reader_thread", move || {
         let mut packet_buffer: Vec<u8> = Vec::new();
         let mut read_buffer: Vec<u8> = Vec::new();
         let mut last_read = Instant::now();
+        let mut last_heartbeat = Instant::now();
 
         while !*kill_signal.lock().unwrap() {
 
@@ -190,7 +220,18 @@ fn build_connection_read_thread(mut reader: NonBlockingReader<fs::File>, sender:
                 }
             }
 
-            thread::sleep(Duration::from_millis(200));
+            match heartbeat {
+                Some(ms) => {
+                    if last_heartbeat.elapsed() >= Duration::from_millis(ms) {
+                        let evt = ConnectionEvent::Heartbeat;
+                        sender.send(evt).unwrap();
+                        last_heartbeat = Instant::now();
+                    }
+                },
+                None => {}
+            }
+
+            thread::sleep(Duration::from_millis(100));
         }
         ()
     })

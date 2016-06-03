@@ -13,14 +13,17 @@ pub struct ThreadHandle<T> {
 }
 
 
-pub fn guard_thread<F, T>(f: F) -> ThreadHandle<T>
+pub fn guard_thread<F, T>(name: &str, f: F) -> ThreadHandle<T>
     where F: FnOnce() -> T, F: Send + 'static, T: Send + 'static {
+
+    let name = name.to_string();
+    let guard_name = name.clone() + "_guard";
 
     let status = Arc::new(Mutex::new(ThreadStatus::Ok));
     let tstatus = status.clone();
 
-    let inner_handle = thread::spawn(f);
-    let handle = thread::spawn(move || {
+    let inner_handle = thread::Builder::new().name(name).spawn(f).unwrap();
+    let handle = thread::Builder::new().name(guard_name).spawn(move || {
         let ret = inner_handle.join();
         match ret {
             Ok(x) => {
@@ -32,7 +35,7 @@ pub fn guard_thread<F, T>(f: F) -> ThreadHandle<T>
                 panic!(e);
             }
         }
-    });
+    }).unwrap();
 
     ThreadHandle{ handle: handle, status: status }
 }
