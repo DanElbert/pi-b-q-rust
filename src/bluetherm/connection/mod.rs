@@ -1,3 +1,5 @@
+mod thread_guard;
+
 use std::fs;
 use std::fmt;
 use std::io;
@@ -6,8 +8,10 @@ use std::sync::{Arc, Mutex};
 use std::sync::mpsc::{channel, Sender, Receiver};
 use std::thread;
 use std::time::{Duration, Instant};
+use std::ops::Deref;
 
 use nonblock::NonBlockingReader;
+use self::thread_guard::*;
 use super::Packet;
 
 pub enum ConnectionEvent {
@@ -32,8 +36,8 @@ pub struct Connection<'a> {
     pub tty_path: &'a str,
     tty_writer: fs::File,
     kill_thread_signal: Arc<Mutex<bool>>,
-    processor_thread_handle: Option<thread::JoinHandle<()>>,
-    reader_thread_handle: Option<thread::JoinHandle<()>>,
+    processor_thread_handle: Option<ThreadHandle<()>>,
+    reader_thread_handle: Option<ThreadHandle<()>>,
 }
 
 impl<'a> Connection<'a> {
@@ -77,6 +81,31 @@ impl<'a> Connection<'a> {
     pub fn send(&mut self, p: &Packet) -> io::Result<usize> {
         self.tty_writer.write(&p.data[..])
     }
+
+    pub fn is_ok(&self) -> bool {
+        let mut ret = true;
+
+        match &self.processor_thread_handle {
+            &Some(ref h) => {
+                ret = ret && match h.status.lock().unwrap().deref() {
+                    &ThreadStatus::Ok => true,
+                    _ => false
+                }
+            },
+            _ => {}
+        }
+
+        match &self.reader_thread_handle {
+            &Some(ref h) => {
+                ret = ret && match h.status.lock().unwrap().deref() {
+                    &ThreadStatus::Ok => true,
+                    _ => false
+                }
+            },
+            _ => {}
+        }
+        ret
+    }
 }
 
 impl<'a> Drop for Connection<'a> {
@@ -88,26 +117,25 @@ impl<'a> Drop for Connection<'a> {
 
         match self.reader_thread_handle.take() {
             Some(th) => {
-                th.join().expect("thread was bad")
+                th.handle.join().unwrap();
             },
             None => {}
         }
 
         match self.processor_thread_handle.take() {
             Some(th) => {
-                th.join().expect("thread was bad")
+                th.handle.join().unwrap();
             },
             None => {}
         }
     }
 }
 
-fn build_processor_thread(receiver: Receiver<ConnectionEvent>, kill_signal: Arc<Mutex<bool>>) -> thread::JoinHandle<()> {
-    thread::spawn(move || {
+fn build_processor_thread(receiver: Receiver<ConnectionEvent>, kill_signal: Arc<Mutex<bool>>) -> ThreadHandle<()> {
+    guard_thread(move || {
         while !*kill_signal.lock().unwrap() {
             match receiver.recv() {
                 Err(_) => {
-                    println!("reciever is busted");
                     break;
                 },
                 Ok(evt) => {
@@ -119,8 +147,8 @@ fn build_processor_thread(receiver: Receiver<ConnectionEvent>, kill_signal: Arc<
     })
 }
 
-fn build_connection_read_thread(mut reader: NonBlockingReader<fs::File>, sender: Sender<ConnectionEvent>, kill_signal: Arc<Mutex<bool>>) -> thread::JoinHandle<()> {
-    thread::spawn(move || {
+fn build_connection_read_thread(mut reader: NonBlockingReader<fs::File>, sender: Sender<ConnectionEvent>, kill_signal: Arc<Mutex<bool>>) -> ThreadHandle<()> {
+    guard_thread(move || {
         let mut packet_buffer: Vec<u8> = Vec::new();
         let mut read_buffer: Vec<u8> = Vec::new();
         let mut last_read = Instant::now();
@@ -145,7 +173,7 @@ fn build_connection_read_thread(mut reader: NonBlockingReader<fs::File>, sender:
                     for x in 0 .. bytes {
                         packet_buffer.push(read_buffer[x]);
                     }
-                }
+                },
                 Ok(_) => {} // do nothing for 0 bytes read
             }
 
