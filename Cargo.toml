@@ -20,3 +20,9 @@ path = "src/harvester.rs"
 bitflags = "*"
 libc = "*"
 nonblock = "0.1.0"
+getopts = "0.2.14"
+chrono = "0.2"
+
+[dependencies.rusqlite]
+version = "0.7.3"
+features = ["chrono"]
