@@ -19,7 +19,8 @@ bitflags! {
         const CAL_VALUE_3 = 8192u16,
         const FIRMWARE_VERSION = 16384u16,
         const TYPES = 32768u16,
-        const DEFAULT = SERIAL_NUMBER.bits | PROBE_NAMES.bits | SENSOR_1_TEMPERATURE.bits | SENSOR_2_TEMPERATURE.bits | BATTERY_CONDITION.bits
+        const DEFAULT = SERIAL_NUMBER.bits | PROBE_NAMES.bits | SENSOR_1_TEMPERATURE.bits | SENSOR_2_TEMPERATURE.bits | BATTERY_CONDITION.bits,
+        const TEMPS = SENSOR_1_TEMPERATURE.bits | SENSOR_2_TEMPERATURE.bits
     }
 }
 

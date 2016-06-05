@@ -25,11 +25,14 @@ fn test_serial_number() {
 #[test]
 fn test_temperatures() {
     let mut p = bluetherm::Packet::new();
-    p.set_sensor1_reading(32.0f32);
-    p.set_sensor2_reading(100.5f32);
+    p.set_sensor1_reading(Some(32.0f64));
+    p.set_sensor2_reading(Some(100.5f64));
 
-    assert_eq!(32.0f32, p.get_sensor1_reading());
-    assert_eq!(100.5f32, p.get_sensor2_reading());
+    assert_eq!(Some(32.0f64), p.get_sensor1_reading());
+    assert_eq!(Some(100.5f64), p.get_sensor2_reading());
+
+    p.set_sensor1_reading(None);
+    assert_eq!(None, p.get_sensor1_reading());
 }
 
 #[test]

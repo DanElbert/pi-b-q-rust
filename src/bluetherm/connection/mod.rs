@@ -34,16 +34,15 @@ impl fmt::Display for ConnectionEvent {
     }
 }
 
-pub struct Connection<'a> {
-    pub tty_path: &'a str,
+pub struct Connection {
+    pub tty_path: String,
     tty_writer: fs::File,
     receiver: Receiver<ConnectionEvent>,
     kill_thread_signal: Arc<Mutex<bool>>,
-    //processor_thread_handle: Option<ThreadHandle<()>>,
     reader_thread_handle: Option<ThreadHandle<()>>,
 }
 
-impl<'a> Connection<'a> {
+impl Connection {
     pub fn new(tty_path: &str, heartbeat_milliseconds: Option<u64>) -> io::Result<Connection> {
         let (tx, rx) = channel::<ConnectionEvent>();
 
@@ -64,14 +63,12 @@ impl<'a> Connection<'a> {
         let nonblocking_reader = NonBlockingReader::from_fd(tty_reader).expect("error creating non-blocking reader");
 
         let reader_thread = build_connection_read_thread(nonblocking_reader, tx, heartbeat_milliseconds, kill_signal.clone());
-        //let processor_thread = build_processor_thread(rx, kill_signal.clone());
 
         Ok(Connection {
-            tty_path: tty_path,
+            tty_path: tty_path.to_string(),
             tty_writer: tty_writer,
             receiver: rx,
             kill_thread_signal: kill_signal,
-            //processor_thread_handle: Some(processor_thread),
             reader_thread_handle: Some(reader_thread)
         })
     }
@@ -114,16 +111,6 @@ impl<'a> Connection<'a> {
     pub fn is_ok(&self) -> bool {
         let mut ret = true;
 
-        // match &self.processor_thread_handle {
-        //     &Some(ref h) => {
-        //         ret = ret && match h.status.lock().unwrap().deref() {
-        //             &ThreadStatus::Ok => true,
-        //             _ => false
-        //         }
-        //     },
-        //     _ => {}
-        // }
-
         match &self.reader_thread_handle {
             &Some(ref h) => {
                 ret = ret && match h.status.lock().unwrap().deref() {
@@ -137,7 +124,7 @@ impl<'a> Connection<'a> {
     }
 }
 
-impl<'a> Drop for Connection<'a> {
+impl Drop for Connection {
     fn drop(&mut self) {
 
         {
@@ -150,31 +137,9 @@ impl<'a> Drop for Connection<'a> {
             },
             None => {}
         }
-
-        // match self.processor_thread_handle.take() {
-        //     Some(th) => {
-        //         th.handle.join().unwrap();
-        //     },
-        //     None => {}
-        // }
     }
 }
 
-// fn build_processor_thread(receiver: Receiver<ConnectionEvent>, kill_signal: Arc<Mutex<bool>>) -> ThreadHandle<()> {
-//     guard_thread("processor_thread", move || {
-//         while !*kill_signal.lock().unwrap() {
-//             match receiver.recv() {
-//                 Err(_) => {
-//                     break;
-//                 },
-//                 Ok(evt) => {
-//                     println!("Got: {}", evt);
-//                 }
-//             }
-//         }
-//         ()
-//     })
-// }
 
 fn build_connection_read_thread(mut reader: NonBlockingReader<fs::File>, sender: Sender<ConnectionEvent>, heartbeat: Option<u64>, kill_signal: Arc<Mutex<bool>>) -> ThreadHandle<()> {
     guard_thread("reader_thread", move || {

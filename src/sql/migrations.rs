@@ -2,13 +2,7 @@ use std::cmp::Ordering;
 use std::fs::{self, File};
 use std::io::{self, Read};
 use std::path::Path;
-use chrono::datetime::DateTime;
-use chrono::offset::local::Local;
-use rusqlite::{self, Connection, SQLITE_OPEN_CREATE, SQLITE_OPEN_READ_WRITE};
-use rusqlite::types::ToSql;
-use rusqlite::types::FromSql;
-
-use super::models;
+use rusqlite::{self, Connection};
 
 struct Version {
     path: String,
@@ -36,38 +30,9 @@ impl Ord for Version {
     }
 }
 
-pub fn insert_connection_status(conn: &Connection, status: &mut models::ConnectionStatus) -> rusqlite::Result<()> {
-    try!(conn.execute("INSERT INTO connection_statuses (is_connect, is_disconnect, info, created_at) VALUES ($1, $2, $3, $4)",
-                 &[&status.is_connect, &status.is_disconnect, &status.info, &status.created_at]));
+pub fn perform_migration(conn: &Connection, migrate_directory: &str) -> rusqlite::Result<()> {
 
-     status.id = conn.last_insert_rowid();
-     Ok(())
-}
-
-// returns a Connection
-// if migrate is a Some, migrations are run
-pub fn get_connection(path: &str, migrate: Option<String>) -> rusqlite::Result<Connection> {
-
-    let mut flags = SQLITE_OPEN_READ_WRITE;
-
-    if migrate.is_some() {
-        flags = flags | SQLITE_OPEN_CREATE;
-    }
-
-    let path = Path::new(path);
-    let conn = try!(Connection::open_with_flags(path, flags));
-
-    match migrate {
-        Some(p) => try!(perform_migration(&conn, &p)),
-        None => {}
-    }
-
-    Ok(conn)
-}
-
-fn perform_migration(conn: &Connection, migrate_directory: &str) -> rusqlite::Result<()> {
-
-    ensure_version_table(conn);
+    try!(ensure_version_table(conn));
 
     let all_versions = match get_migration_versions(migrate_directory) {
         Ok(v) => v,
@@ -100,7 +65,7 @@ fn perform_migration(conn: &Connection, migrate_directory: &str) -> rusqlite::Re
 
 fn get_existing_versions(conn: &Connection) -> rusqlite::Result<Vec<Version>> {
     let mut stmt = try!(conn.prepare("SELECT version FROM schema_migrations"));
-    let mut version_itr = try!(stmt.query_map(&[], |row| {
+    let version_itr = try!(stmt.query_map(&[], |row| {
         Version {
             path: "".to_string(),
             version: row.get::<i32, i64>(0) as u32
@@ -172,7 +137,7 @@ fn calculate_version(path: &Path) -> io::Result<u32> {
 
             let version = match version.parse::<u32>() {
                 Ok(v) => v,
-                Err(e) => return Err(io::Error::new(io::ErrorKind::Other, "Invalid filename"))
+                Err(e) => return Err(io::Error::new(io::ErrorKind::Other, format!("Invalid filename: {}", e)))
             };
 
             Ok(version)

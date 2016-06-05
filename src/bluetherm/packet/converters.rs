@@ -43,24 +43,33 @@ pub fn string_in(value: &str, buffer: &mut [u8]) {
     }
 }
 
-pub fn temperature_out(data: &[u8]) -> f32 {
+pub fn temperature_out(data: &[u8]) -> Option<f64> {
     let mut int_value: u32 = data[0] as u32;
     int_value += (data[1] as u32) << 8;
     int_value += (data[2] as u32) << 16;
     int_value += (data[3] as u32) << 24;
 
-    let mut value: f32 = 0f32;
-
-    if int_value < 0xFFFFFFFD {
-        value = int_value as f32;
-        value = (value / 100_000.0f32) - 300.0f32;
+    if int_value >= 0xFFFFFFFDu32 {
+        return None;
     }
 
-    value
+    let mut value: f64 = 0f64;
+
+    if int_value < 0xFFFFFFFD {
+        value = int_value as f64;
+        value = (value / 100_000.0f64) - 300.0f64;
+    }
+
+    Some(value)
 }
 
-pub fn temperature_in(value: f32, buffer: &mut [u8]) {
-    let int_value: u32 = ((value + 300.0f32) * 100_000.0f32) as u32;
+pub fn temperature_in(value: Option<f64>, buffer: &mut [u8]) {
+
+    let int_value: u32 = match value {
+        Some(v) => ((v + 300.0f64) * 100_000.0f64) as u32,
+        None => 0xFFFFFFFF
+    };
+
     buffer[0] = (int_value & 0xFF) as u8;
     buffer[1] = ((int_value >> 8) & 0xFF) as u8;
     buffer[2] = ((int_value >> 16) & 0xFF) as u8;

@@ -34,6 +34,15 @@ impl Packet {
       Packet { data: data }
   }
 
+  pub fn temp_packet() -> Packet {
+      let mut p = Packet::new();
+      p.set_command_id(message_type::RETRIEVE_INFO);
+      p.set_version(1);
+      p.set_data_flags(data_flags::TEMPS);
+      p.apply_checksum();
+      p
+  }
+
   pub fn calculate_checksum(&self) -> u16 {
       crc::compute_checksum(&self.data[0 .. 126])
   }
@@ -79,19 +88,19 @@ impl Packet {
     self.set_field(4, 10, value, converters::string_in);
   }
 
-  pub fn get_sensor1_reading(&self) -> f32 {
+  pub fn get_sensor1_reading(&self) -> Option<f64> {
       self.get_field(54, 4, converters::temperature_out)
   }
 
-  pub fn set_sensor1_reading(&mut self, value: f32) {
+  pub fn set_sensor1_reading(&mut self, value: Option<f64>) {
       self.set_field(54, 4, value, converters::temperature_in);
   }
 
-  pub fn get_sensor2_reading(&self) -> f32 {
+  pub fn get_sensor2_reading(&self) -> Option<f64> {
       self.get_field(74, 4, converters::temperature_out)
   }
 
-  pub fn set_sensor2_reading(&mut self, value: f32) {
+  pub fn set_sensor2_reading(&mut self, value: Option<f64>) {
       self.set_field(74, 4, value, converters::temperature_in);
   }
 
