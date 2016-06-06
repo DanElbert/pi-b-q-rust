@@ -178,12 +178,13 @@ fn build_connection_read_thread(tty_path: String, event_sender: Sender<Connectio
                     event_sender.send(evt).unwrap();
                 },
                 Ok(bytes) if bytes > 0 => {
+                    println!("bytes: {}", bytes);
                     last_read = Instant::now();
                     for x in 0 .. bytes {
                         packet_buffer.push(read_buffer[x]);
                     }
                 },
-                Ok(_) => {} // do nothing for 0 bytes read
+                Ok(bytes) => { println!("bytes: {}", bytes); } // do nothing for 0 bytes read
             };
 
             while packet_buffer.len() >= 128 {
