@@ -51,8 +51,9 @@ impl Harvester {
 
     fn start(&mut self) {
         loop {
-            match self.last_send {
-                Some(i) if i.elapsed() < self.send_interval => {},
+            match (self.last_send, self.last_receive) {
+                (Some(sent), _) if sent.elapsed() < self.send_interval => {},
+                (Some(sent), Some(received)) if sent > received => {},
                 _ => {
                     self.send_packet();
                     self.last_send = Some(Instant::now());
