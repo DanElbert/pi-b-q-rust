@@ -145,6 +145,8 @@ impl Harvester {
         }
 
         self.disconnected = true;
+        self.last_send = None;
+        self.last_receive = None;
 
         println!("error, killing old connection");
 
