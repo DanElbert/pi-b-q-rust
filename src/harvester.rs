@@ -53,7 +53,7 @@ impl Harvester {
         loop {
             match (self.last_send, self.last_receive) {
                 (Some(sent), _) if sent.elapsed() < self.send_interval => {},
-                (Some(sent), Some(received)) if sent > received => {},
+                //(Some(sent), Some(received)) if sent > received => {},
                 _ => {
                     self.send_packet();
                     self.last_send = Some(Instant::now());
