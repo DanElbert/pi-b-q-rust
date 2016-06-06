@@ -138,19 +138,19 @@ fn build_connection_read_thread(tty_path: String, event_sender: Sender<Connectio
             Ok(s) => s
         };
 
-        match serial.set_timeout(Duration::from_millis(500)) {
+        match serial.set_timeout(Duration::from_millis(2000)) {
             Err(e) => { panic!(format!("Unable to set serial timeout: {}", e)) },
             Ok(_) => {}
         };
 
         let mut packet_buffer: Vec<u8> = Vec::new();
-        let mut read_buffer: Vec<u8> = Vec::new();
+        let mut read_buffer: Vec<u8> = vec![0u8; 128];
         let mut last_read = Instant::now();
         let mut last_heartbeat = Instant::now();
 
         while !*kill_signal.lock().unwrap() {
 
-            if packet_buffer.len() > 0 && last_read.elapsed().as_secs() > 2 {
+            if packet_buffer.len() > 0 && last_read.elapsed().as_secs() > 4 {
                 let evt = ConnectionEvent::ReadError(io::Error::new(io::ErrorKind::InvalidData, format!("Invalid packet data: {:?}", packet_buffer.clone())));
                 event_sender.send(evt).unwrap();
                 packet_buffer.clear();
