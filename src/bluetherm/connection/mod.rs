@@ -138,7 +138,7 @@ fn build_connection_read_thread(tty_path: String, event_sender: Sender<Connectio
             Ok(s) => s
         };
 
-        match serial.set_timeout(Duration::from_millis(1000)) {
+        match serial.set_timeout(Duration::from_millis(2000)) {
             Err(e) => { panic!(format!("Unable to set serial timeout: {}", e)) },
             Ok(_) => {}
         };
@@ -158,6 +158,7 @@ fn build_connection_read_thread(tty_path: String, event_sender: Sender<Connectio
 
             match packet_receiver.try_recv() {
                 Ok(p) => {
+                    println!("going to write...");
                     match serial.write_all(&p.data) {
                         Ok(_) => {},
                         Err(e) => {
