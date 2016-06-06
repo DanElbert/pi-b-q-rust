@@ -66,6 +66,7 @@ impl Harvester {
             match event {
                 bluetherm::ConnectionEvent::Packet(p) => {
                     self.record_packet(p);
+                    self.last_send = Some(Instant::now());
                     self.last_receive = Some(Instant::now());
                 },
                 e @ bluetherm::ConnectionEvent::InvalidPacket(_) => { self.bt_error(e); },
@@ -106,6 +107,7 @@ impl Harvester {
     }
 
     fn send_packet(&mut self) {
+        println!("sending packet...");
         let p = bluetherm::Packet::temp_packet();
         match self.get_bt_conn().send(&p) {
             Err(e) => {
@@ -113,6 +115,7 @@ impl Harvester {
             },
             Ok(_) => {}
         }
+        println!("done sending packet.");
     }
 
     fn bt_error(&mut self, evt: bluetherm::ConnectionEvent) {
