@@ -106,7 +106,12 @@ impl Harvester {
 
     fn send_packet(&mut self) {
         let p = bluetherm::Packet::temp_packet();
-        self.get_bt_conn().send(&p).unwrap();
+        match self.get_bt_conn().send(&p) {
+            Err(e) => {
+                self.bt_error(bluetherm::ConnectionEvent::ReadError(e));
+            },
+            Ok(_) => {}
+        }
     }
 
     fn bt_error(&mut self, evt: bluetherm::ConnectionEvent) {
@@ -131,8 +136,8 @@ impl Harvester {
 
         if report_error {
             let msg = match evt {
-                bluetherm::ConnectionEvent::InvalidPacket(p) => { format!("Invalid Packet: [{}]", p) },
-                bluetherm::ConnectionEvent::ReadError(err) => { format!("Read Error: {}", err) },
+                bluetherm::ConnectionEvent::InvalidPacket(ref p) => { format!("Invalid Packet: [{}]", p) },
+                bluetherm::ConnectionEvent::ReadError(ref err) => { format!("Read Error: {}", err) },
                 bluetherm::ConnectionEvent::BadData(_) => { format!("Bad Data Read") },
                 bluetherm::ConnectionEvent::Heartbeat => { "Timeout".to_string() },
                 _ => "Unknown Error".to_string()
@@ -148,7 +153,7 @@ impl Harvester {
         self.last_send = None;
         self.last_receive = None;
 
-        println!("error, killing old connection");
+        println!("error, killing old connection. {}", evt);
 
         let old = self.bt_conn.take();
         drop(old.unwrap());
