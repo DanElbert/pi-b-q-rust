@@ -11,7 +11,7 @@ use pibq::sql;
 use pibq::models::{ConnectionStatus, Reading};
 
 // interval between sending query packtets, in ms
-const QUERY_INTERVAL: u64 = 3000;
+const QUERY_INTERVAL: u64 = 7000;
 
 // if no packets are returned, amount of time to wait before creating a timeout error, in ms
 const TIMEOUT_INTERVAL: u64 = 15000;
