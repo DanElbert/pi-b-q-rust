@@ -101,7 +101,7 @@ impl Harvester {
         let mut reading = Reading::new();
         reading.value1 = packet.get_sensor1_reading();
         reading.value2 = packet.get_sensor2_reading();
-        sql::insert_reading(&self.sql_conn, &mut reading);
+        sql::insert_reading(&self.sql_conn, &mut reading).unwrap();
     }
 
     fn send_packet(&mut self) {
@@ -146,10 +146,16 @@ impl Harvester {
 
         self.disconnected = true;
 
+        println!("error, killing old connection");
+
         let old = self.bt_conn.take();
         drop(old.unwrap());
 
+        println!("old conneciton dropped; making new");
+
         self.bt_conn = Some(Harvester::connect_bluetherm(&self.serial));
+
+        println!("new connection made");
     }
 }
 

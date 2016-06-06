@@ -3,6 +3,7 @@ MAINTAINER Dan Elbert
 
 RUN apt-get -y update && apt-get -y upgrade
 RUN apt-get -y install curl file less vim crossbuild-essential-armhf
+RUN apt-get -y install libsqlite3-dev
 RUN rm -rf /var/lib/apt/lists/*
 
 RUN curl https://sh.rustup.rs -sSf > /tmp/sh.rustup.sh
