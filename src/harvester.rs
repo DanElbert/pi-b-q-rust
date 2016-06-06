@@ -64,7 +64,6 @@ impl Harvester {
 
             let event = self.get_bt_conn().wait().unwrap();
 
-            println!("{}", event);
             match event {
                 bluetherm::ConnectionEvent::Packet(p) => {
                     self.record_packet(p);
