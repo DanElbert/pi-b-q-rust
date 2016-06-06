@@ -2,6 +2,8 @@
 name = "pi-b-q-rust"
 version = "0.1.0"
 authors = ["Dan Elbert <dan.elbert@gmail.com>"]
+build = "build.rs"
+links = "libsqlite"
 publish = false
 
 [lib]
@@ -17,8 +19,7 @@ name = "harvester"
 path = "src/harvester.rs"
 
 [build-dependencies]
-serde_codegen = "*"
-syntex = "*"
+gcc = "0.3"
 
 [dependencies]
 bitflags = "*"
