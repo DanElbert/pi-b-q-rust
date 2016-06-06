@@ -16,6 +16,10 @@ path = "src/web.rs"
 name = "harvester"
 path = "src/harvester.rs"
 
+[build-dependencies]
+serde_codegen = "*"
+syntex = "*"
+
 [dependencies]
 bitflags = "*"
 libc = "*"
@@ -26,8 +30,9 @@ iron = "0.3.0"
 router = "0.1.1"
 staticfile = "0.2.0"
 mount = "0.1.0"
-urlencoded = "0.3.0"
 handlebars-iron = "0.15.2"
+url = "*"
+rustc-serialize = "*"
 
 [dependencies.rusqlite]
 version = "0.7.3"
