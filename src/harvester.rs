@@ -159,14 +159,15 @@ impl Harvester {
 
         self.disconnected = true;
         self.disconnect_reason = Some(evt);
-        self.last_send = None;
-        self.last_receive = None;
 
         self.error_count = self.error_count + 1;
 
         if self.error_count > 3 {
             self.error_count = 0;
             println!("killing old connection.");
+
+            self.last_send = None;
+            self.last_receive = None;
 
             let old = self.bt_conn.take();
             drop(old.unwrap());
