@@ -24,6 +24,7 @@ struct Harvester {
     serial: String,
     disconnected: bool,
     disconnect_reason: Option<bluetherm::ConnectionEvent>,
+    error_count: i64,
     send_interval: Duration,
     timeout_interval: Duration,
     last_send: Option<Instant>,
@@ -38,6 +39,7 @@ impl Harvester {
             serial: serial.to_string(),
             disconnected: true,
             disconnect_reason: None,
+            error_count: 0,
             send_interval: Duration::from_millis(QUERY_INTERVAL),
             timeout_interval: Duration::from_millis(TIMEOUT_INTERVAL),
             last_send: None,
@@ -153,20 +155,28 @@ impl Harvester {
             sql::insert_connection_status(&self.sql_conn, &mut s).unwrap();
         }
 
+        println!("error: {}", evt);
+
         self.disconnected = true;
+        self.disconnect_reason = Some(evt);
         self.last_send = None;
         self.last_receive = None;
 
-        println!("error, killing old connection. {}", evt);
+        self.error_count = self.error_count + 1;
 
-        let old = self.bt_conn.take();
-        drop(old.unwrap());
+        if self.error_count > 3 {
+            self.error_count = 0;
+            println!("killing old connection.");
 
-        println!("old conneciton dropped; making new");
+            let old = self.bt_conn.take();
+            drop(old.unwrap());
 
-        self.bt_conn = Some(Harvester::connect_bluetherm(&self.serial));
+            println!("old conneciton dropped; making new");
 
-        println!("new connection made");
+            self.bt_conn = Some(Harvester::connect_bluetherm(&self.serial));
+
+            println!("new connection made");
+        }
     }
 }
 
