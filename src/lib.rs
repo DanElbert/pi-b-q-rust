@@ -1,7 +1,7 @@
 #[macro_use]
 extern crate bitflags;
 
-extern crate nonblock;
+extern crate serial;
 extern crate libc;
 extern crate rusqlite;
 extern crate chrono;

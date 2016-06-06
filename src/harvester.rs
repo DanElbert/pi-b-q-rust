@@ -73,7 +73,7 @@ impl Harvester {
                 },
                 e @ bluetherm::ConnectionEvent::InvalidPacket(_) => { self.bt_error(e); },
                 e @ bluetherm::ConnectionEvent::ReadError(_) => { self.bt_error(e); },
-                e @ bluetherm::ConnectionEvent::BadData(_) => { self.bt_error(e); },
+                e @ bluetherm::ConnectionEvent::WriteError(_) => { self.bt_error(e); },
                 e @ bluetherm::ConnectionEvent::Heartbeat => {
                     match self.last_receive {
                         None => {
@@ -111,7 +111,7 @@ impl Harvester {
     fn send_packet(&mut self) {
         println!("sending packet...");
         let p = bluetherm::Packet::temp_packet();
-        match self.get_bt_conn().send(&p) {
+        match self.get_bt_conn().send(p) {
             Err(e) => {
                 self.bt_error(bluetherm::ConnectionEvent::ReadError(e));
             },
@@ -130,7 +130,7 @@ impl Harvester {
                     match (reason, &evt) {
                         (&bluetherm::ConnectionEvent::InvalidPacket(_), &bluetherm::ConnectionEvent::InvalidPacket(_)) |
                         (&bluetherm::ConnectionEvent::ReadError(_), &bluetherm::ConnectionEvent::ReadError(_)) |
-                        (&bluetherm::ConnectionEvent::BadData(_), &bluetherm::ConnectionEvent::BadData(_)) |
+                        (&bluetherm::ConnectionEvent::WriteError(_), &bluetherm::ConnectionEvent::WriteError(_)) |
                         (&bluetherm::ConnectionEvent::Heartbeat, &bluetherm::ConnectionEvent::Heartbeat) => {
                             report_error = false;
                         },
@@ -144,7 +144,7 @@ impl Harvester {
             let msg = match evt {
                 bluetherm::ConnectionEvent::InvalidPacket(ref p) => { format!("Invalid Packet: [{}]", p) },
                 bluetherm::ConnectionEvent::ReadError(ref err) => { format!("Read Error: {}", err) },
-                bluetherm::ConnectionEvent::BadData(_) => { format!("Bad Data Read") },
+                bluetherm::ConnectionEvent::WriteError(ref err) => { format!("Write Error: {}", err) },
                 bluetherm::ConnectionEvent::Heartbeat => { "Timeout".to_string() },
                 _ => "Unknown Error".to_string()
             };
@@ -179,21 +179,6 @@ impl Harvester {
         }
     }
 }
-
-// fn harvest(sql_conn: rusqlite::Connection, serial: &str) {
-//
-//     loop {
-//         // if disconnected {
-//         //     bt_conn = bluetherm::Connection::new(serial, Some(1000)).unwrap();
-//         //     let mut s = ConnectionStatus::new();
-//         //     s.is_disconnect = true;
-//         //     sql::insert_connection_status(&sql_conn, &mut s).unwrap();
-//         // }
-//
-//
-//     }
-//
-// }
 
 fn print_usage(program: &str, opts: Options) {
     let brief = format!("Usage: {} [options]", program);
