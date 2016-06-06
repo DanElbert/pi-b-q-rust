@@ -138,7 +138,7 @@ fn build_connection_read_thread(tty_path: String, event_sender: Sender<Connectio
             Ok(s) => s
         };
 
-        match serial.set_timeout(Duration::from_millis(2000)) {
+        match serial.set_timeout(Duration::from_millis(500)) {
             Err(e) => { panic!(format!("Unable to set serial timeout: {}", e)) },
             Ok(_) => {}
         };
