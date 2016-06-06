@@ -14,7 +14,7 @@ use pibq::models::{ConnectionStatus, Reading};
 const QUERY_INTERVAL: u64 = 3000;
 
 // if no packets are returned, amount of time to wait before creating a timeout error, in ms
-const TIMEOUT_INTERVAL: u64 = 6500;
+const TIMEOUT_INTERVAL: u64 = 15000;
 
 const HEARTBEAT_INTERVAL: u64 = 1000;
 
