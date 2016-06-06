@@ -172,7 +172,7 @@ fn build_connection_read_thread(tty_path: String, event_sender: Sender<Connectio
             }
 
             match serial.read(&mut read_buffer) {
-                Err(e) if e.kind() == io::ErrorKind::Timeout => {},
+                Err(e) if e.kind() == io::ErrorKind::TimedOut => {},
                 Err(e) => {
                     let evt = ConnectionEvent::ReadError(e);
                     event_sender.send(evt).unwrap();
