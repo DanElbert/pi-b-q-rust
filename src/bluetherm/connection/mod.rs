@@ -150,11 +150,15 @@ fn build_connection_read_thread(mut reader: NonBlockingReader<fs::File>, sender:
 
         while !*kill_signal.lock().unwrap() {
 
+            println!("a");
+
             if packet_buffer.len() > 0 && last_read.elapsed().as_secs() > 2 {
                 let evt = ConnectionEvent::BadData(packet_buffer.clone());
                 sender.send(evt).unwrap();
                 packet_buffer.clear();
             }
+
+            println!("b");
 
             read_buffer.clear();
 
@@ -172,6 +176,8 @@ fn build_connection_read_thread(mut reader: NonBlockingReader<fs::File>, sender:
                 Ok(_) => {} // do nothing for 0 bytes read
             }
 
+            println!("c");
+
             while packet_buffer.len() >= 128 {
                 let data: Vec<u8> = packet_buffer.drain(0..128).collect();
                 let p = Packet::from_bytes(&data);
@@ -185,6 +191,8 @@ fn build_connection_read_thread(mut reader: NonBlockingReader<fs::File>, sender:
                 }
             }
 
+            println!("d");
+
             match heartbeat {
                 Some(ms) => {
                     if last_heartbeat.elapsed() >= Duration::from_millis(ms) {
@@ -196,7 +204,11 @@ fn build_connection_read_thread(mut reader: NonBlockingReader<fs::File>, sender:
                 None => {}
             }
 
+            println!("e");
+
             thread::sleep(Duration::from_millis(100));
+
+            println!("f");
         }
         ()
     })
