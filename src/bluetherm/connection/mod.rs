@@ -14,6 +14,12 @@ use serial;
 use self::thread_guard::*;
 use super::Packet;
 
+// Serial port read/write timeout in ms
+const SERIAL_TIMEOUT: u64 = 1000;
+
+// Serial port read loop sleep delay (prevent busy spin on IO thread) in ms
+const READER_LOOP_SLEEP: u64 = 250;
+
 pub enum ConnectionEvent {
     Packet(Packet),
     InvalidPacket(Packet),
@@ -138,7 +144,7 @@ fn build_connection_read_thread(tty_path: String, event_sender: Sender<Connectio
             Ok(s) => s
         };
 
-        match serial.set_timeout(Duration::from_millis(2000)) {
+        match serial.set_timeout(Duration::from_millis(SERIAL_TIMEOUT)) {
             Err(e) => { panic!(format!("Unable to set serial timeout: {}", e)) },
             Ok(_) => {}
         };
@@ -209,7 +215,7 @@ fn build_connection_read_thread(tty_path: String, event_sender: Sender<Connectio
                 None => {}
             }
 
-            thread::sleep(Duration::from_millis(250));
+            thread::sleep(Duration::from_millis(READER_LOOP_SLEEP));
         }
         ()
     })

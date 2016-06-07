@@ -11,11 +11,12 @@ use pibq::sql;
 use pibq::models::{ConnectionStatus, Reading};
 
 // interval between sending query packtets, in ms
-const QUERY_INTERVAL: u64 = 7000;
+const QUERY_INTERVAL: u64 = 5000;
 
 // if no packets are returned, amount of time to wait before creating a timeout error, in ms
-const TIMEOUT_INTERVAL: u64 = 15000;
+const TIMEOUT_INTERVAL: u64 = 7500;
 
+// Heartbeat interval, in ms
 const HEARTBEAT_INTERVAL: u64 = 1000;
 
 struct Harvester {
