@@ -1,0 +1,45 @@
+
+#header {
+  background-color: $brand-primary;
+  color: #fff;
+}
+
+#header a {
+  color: #fff;
+}
+
+#header h1 {
+  margin: 0;
+  padding: 0;
+  font-size: 22px;
+}
+
+#header .readings button {
+  padding: 4px;
+}
+
+#last_update {
+  display: block;
+  margin: 8px 0 0 0;
+}
+
+#status {
+  padding: 5px;
+  font-size: 2em;
+}
+
+#status.good {
+  color: $brand-success;
+}
+
+#status.bad {
+  color: $brand-info;
+}
+
+#chart {
+  position: absolute;
+  top: 75px;
+  bottom: 15px;
+  right: 20px;
+  left: 15px;
+}

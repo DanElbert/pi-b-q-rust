@@ -60,10 +60,11 @@ impl WebServer {
         let mut router = Router::new();
         router.get("/", |request: &mut Request| { web_handlers::projects_index(request) });
         router.get("/projects/new", |request: &mut Request| { web_handlers::new_project(request) });
-        router.put("/projects", |request: &mut Request| { web_handlers::create_project(request) });
+        router.post("/projects/new", |request: &mut Request| { web_handlers::create_project(request) });
         router.get("/projects/:id", |request: &mut Request| { web_handlers::show_project(request) });
         router.get("/projects/:id/edit", |request: &mut Request| { web_handlers::edit_project(request) });
         router.post("/projects/:id", |request: &mut Request| { web_handlers::update_project(request) });
+        router.get("/projects/:id/data.json", |request: &mut Request| { web_handlers::project_data(request) });
 
         let mut mount = Mount::new();
         mount
@@ -74,7 +75,7 @@ impl WebServer {
         template_engine.add(Box::new(DirectorySource::new(&self.template_path, ".hbs")));
 
         if let Err(r) = template_engine.reload() {
-            panic!("{}", r);
+            panic!("{:?}", r);
         }
 
         let (logger_before, logger_after) = logger::Logger::new(None);

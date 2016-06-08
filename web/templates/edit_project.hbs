@@ -4,18 +4,82 @@
     <div class="col-xs-12">
       <div class="page-header">
         <h1>
-          {{#if project.is_new()}}
-            Edit Project
-          {{else}}
+          {{#if is_new}}
             Create Project
+          {{else}}
+            Edit Project
           {{/if}}
         </h1>
       </div>
 
+      {{#if has_errors}}
+        <div class="errors">
+          <ul>
+            {{#each errors}}
+              <li>{{this}}</li>
+            {{/each}}
+          </ul>
+        </div>
+      {{/if}}
 
+      {{#if is_new}}
+        <form accept-charset="UTF-8" method="post" action="/projects/new">
+      {{else}}
+        <form accept-charset="UTF-8" method="post" action="/projects/{{project.id}}">
+      {{/if}}
+
+      <div class="form-group">
+        <label class="control-label" for="name">Name</label>
+        <input class="form-control" id="name" name="name" type="text" value="{{project.name}}" />
+      </div>
+
+      <div class="form-group">
+        <label class="control-label" for="sensor1_name">Sensor 1</label>
+        <input class="form-control" id="sensor1_name" name="sensor1_name" type="text" value="{{project.sensor1_name}}" />
+      </div>
+
+      <div class="form-group">
+        <label class="control-label" for="sensor2_name">Sensor 2</label>
+        <input class="form-control" id="sensor2_name" name="sensor2_name" type="text" value="{{project.sensor2_name}}" />
+      </div>
+
+      <div class="form-group">
+        <label class="control-label" for="start">Start</label>
+        <div class="input-group date" id="start_picker">
+          <input name="start" id="start" type='text' class="form-control" value="{{project.start}}" />
+          <span class="input-group-addon">
+            <span class="glyphicon glyphicon-calendar"></span>
+          </span>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="control-label" for="start">End</label>
+        <div class="input-group date" id="end_picker">
+          <input name="end" id="end" type='text' class="form-control" value="{{project.end}}" />
+          <span class="input-group-addon">
+            <span class="glyphicon glyphicon-calendar"></span>
+          </span>
+        </div>
+      </div>
+
+      <input class="btn btn-primary" type="submit" value="OK" />
+
+      </form>
 
     </div>
-  </di>
+  </div>
 </div>
+
+<script type="text/javascript">
+  $(document).ready(function() {
+    var opts = {
+      format: 'Y-MM-DD HH:mm:ss'
+    };
+    $('#start_picker').datetimepicker(opts);
+    $('#end_picker').datetimepicker(opts);
+  });
+</script>
+
 {{/partial}}
 {{~> layout~}}

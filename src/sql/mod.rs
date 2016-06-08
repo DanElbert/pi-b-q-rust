@@ -1,6 +1,9 @@
 mod migrations;
 pub mod pool;
 
+use chrono::datetime::DateTime;
+use chrono::offset::TimeZone;
+use chrono::offset::local::Local;
 use std::path::Path;
 use std::time::Duration;
 use r2d2;
@@ -16,12 +19,58 @@ pub fn insert_connection_status(conn: &Connection, status: &mut models::Connecti
      Ok(())
 }
 
+pub fn get_latest_connection_status(conn: &Connection) -> rusqlite::Result<Option<models::ConnectionStatus>> {
+    let sql = "SELECT id, is_connect, is_disconnect, info, created_at FROM connection_statuses ORDER BY created_at DESC LIMIT 1";
+    let result = conn.query_row(sql, &[], |row| {
+        models::ConnectionStatus {
+            id: row.get(0),
+            is_connect: row.get(1),
+            is_disconnect: row.get(2),
+            info: row.get(3),
+            created_at: row.get(4)
+        }
+    });
+
+    match result {
+        Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
+        Ok(p) => Ok(Some(p)),
+        Err(e) => Err(e)
+    }
+}
+
 pub fn insert_reading(conn: &Connection, reading: &mut models::Reading) -> rusqlite::Result<()> {
     try!(conn.execute("INSERT INTO readings (value1, value2, timestamp) VALUES ($1, $2, $3)",
                  &[&reading.value1, &reading.value2, &reading.timestamp]));
 
      reading.id = conn.last_insert_rowid();
      Ok(())
+}
+
+pub fn get_project_readings(conn: &Connection, project: &models::Project, after: Option<DateTime<Local>>) -> rusqlite::Result<Vec<models::Reading>> {
+    let mut stmt = try!(conn.prepare("SELECT id, value1, value2, timestamp FROM readings WHERE timestamp > $1 AND timestamp < $2 ORDER BY timestamp"));
+
+    let start_date = match after {
+        Some(dt) => dt,
+        None => project.start
+    };
+
+    let reading_iter = try!(stmt.query_map(&[&start_date, &project.end], |row| {
+        models::Reading {
+            id: row.get(0),
+            value1: row.get(1),
+            value2: row.get(2),
+            timestamp: row.get(3)
+        }
+    }));
+
+    let mut result = vec![];
+
+    for reading_row in reading_iter {
+        let reading = try!(reading_row);
+        result.push(reading);
+    }
+
+    Ok(result)
 }
 
 pub fn insert_project(conn: &Connection, project: &mut models::Project) -> rusqlite::Result<()> {

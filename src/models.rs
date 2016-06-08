@@ -5,14 +5,18 @@ use rustc_serialize::Encodable;
 use rustc_serialize::json::{self, Json, ToJson};
 use std::collections::BTreeMap;
 
+fn date_to_json(dt: &DateTime<Local>) -> Json {
+    dt.format("%Y-%m-%d %H:%M:%S").to_string().to_json()
+}
+
 pub trait DbObject {
     fn get_id(&self) -> i64;
 
     fn is_new(&self) -> bool {
-        self.get_id() == 0
+        self.get_id() == 0i64
     }
 
-    fn is_persisten(&self) -> bool {
+    fn is_persistent(&self) -> bool {
         !self.is_new()
     }
 }
@@ -28,6 +32,7 @@ impl<Tz> CustomToJson for DateTime<Tz>
     }
 }
 
+#[derive(RustcEncodable, RustcDecodable)]
 pub struct ConnectionStatus {
     pub id: i64,
     pub is_connect: bool,
@@ -54,6 +59,7 @@ impl DbObject for ConnectionStatus {
     }
 }
 
+#[derive(RustcEncodable, RustcDecodable)]
 pub struct Project {
     pub id: i64,
     pub name: String,
@@ -95,17 +101,18 @@ impl ToJson for Project {
         let mut m: BTreeMap<String, Json> = BTreeMap::new();
         m.insert("id".to_string(), self.id.to_json());
         m.insert("name".to_string(), self.name.to_json());
-        m.insert("start".to_string(), self.start.to_json());
-        m.insert("end".to_string(), self.end.to_json());
+        m.insert("start".to_string(), date_to_json(&self.start));
+        m.insert("end".to_string(), date_to_json(&self.end));
         m.insert("sensor1_name".to_string(), self.sensor1_name.to_json());
         m.insert("sensor2_name".to_string(), self.sensor2_name.to_json());
-        m.insert("created_at".to_string(), self.created_at.to_json());
-        m.insert("updated_at".to_string(), self.updated_at.to_json());
+        m.insert("created_at".to_string(), date_to_json(&self.created_at));
+        m.insert("updated_at".to_string(), date_to_json(&self.updated_at));
 
         m.to_json()
     }
 }
 
+#[derive(RustcEncodable, RustcDecodable)]
 pub struct Reading {
     pub id: i64,
     pub value1: Option<f64>,
@@ -121,6 +128,18 @@ impl Reading {
             value2: None,
             timestamp: Local::now()
         }
+    }
+}
+
+impl ToJson for Reading {
+    fn to_json(&self) -> Json {
+        let mut m: BTreeMap<String, Json> = BTreeMap::new();
+
+        m.insert("value1".to_string(), self.value1.to_json());
+        m.insert("value2".to_string(), self.value1.to_json());
+        m.insert("timestamp".to_string(), date_to_json(&self.timestamp));
+
+        m.to_json()
     }
 }
 
