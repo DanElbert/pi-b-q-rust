@@ -44,15 +44,17 @@ impl AfterMiddleware for ErrorHandler {
 struct WebServer {
     sql_pool: SqlitePool,
     asset_path: String,
-    template_path: String
+    template_path: String,
+    port: String
 }
 
 impl WebServer {
-    pub fn new(sql_pool: SqlitePool, web_root: &str) -> Self {
+    pub fn new(sql_pool: SqlitePool, web_root: &str, port: &str) -> Self {
         WebServer {
             sql_pool: sql_pool,
             asset_path: web_root.to_string() + "/assets/",
-            template_path: web_root.to_string() + "/templates/"
+            template_path: web_root.to_string() + "/templates/",
+            port: port.to_string()
         }
     }
 
@@ -69,7 +71,7 @@ impl WebServer {
         let mut mount = Mount::new();
         mount
             .mount("/", router)
-            .mount("/assets/", Static::new(Path::new(&self.asset_path)));
+            .mount("/assets/", Static::new(Path::new(&self.asset_path)).cache(std::time::Duration::from_secs(2 * 60 * 60)));
 
         let mut template_engine = HandlebarsEngine::new();
         template_engine.add(Box::new(DirectorySource::new(&self.template_path, ".hbs")));
@@ -87,7 +89,9 @@ impl WebServer {
         chain.link_before(logger_before);
         chain.link_after(logger_after);
 
-        Iron::new(chain).http("0.0.0.0:3000").unwrap();
+        let binding = "0.0.0.0:".to_string() + &self.port;
+
+        Iron::new(chain).http(binding.as_str()).unwrap();
     }
 }
 
@@ -103,6 +107,7 @@ fn main() {
     let mut opts = Options::new();
     opts.optopt("d", "dbfile", "sqlite DB file", "FILE");
     opts.optopt("w", "webroot", "root of web files", "DIR");
+    opts.optopt("p", "port", "port to listen on", "PORT");
     opts.optflag("h", "help", "print this help menu");
     let matches = match opts.parse(&args[1..]) {
         Ok(m) => { m }
@@ -119,9 +124,10 @@ fn main() {
 
     let dbfile = matches.opt_str("d").unwrap_or("pibq.sqlite".to_string());
     let webroot = matches.opt_str("w").unwrap_or("web".to_string());
+    let port = matches.opt_str("p").unwrap_or("3000".to_string());
 
     let db_pool = sql::get_pool(&dbfile, Some(5));
 
-    let mut w = WebServer::new(db_pool, &webroot);
+    let mut w = WebServer::new(db_pool, &webroot, &port);
     w.start();
 }

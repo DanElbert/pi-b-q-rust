@@ -37,7 +37,10 @@ impl r2d2::ManageConnection for SqliteConnectionManager {
                 Some(ref path) => {
                     let flags = SQLITE_OPEN_READ_WRITE;
                     let path = Path::new(path);
-                    let conn = try!(Connection::open_with_flags(path, flags));
+                    let mut conn = try!(Connection::open_with_flags(path, flags));
+
+                    add_trace(&mut conn);
+
                     Ok(conn)
                 },
                 None => unreachable!(),
@@ -52,4 +55,16 @@ impl r2d2::ManageConnection for SqliteConnectionManager {
     fn has_broken(&self, _: &mut Connection) -> bool {
         false
     }
+}
+
+#[cfg(feature = "db_trace")]
+fn add_trace(conn: &mut Connection) {
+    fn f(msg: &str) {
+        println!("SQL TRACE: [{}]", msg);
+    }
+    conn.trace(Some(f));
+}
+
+#[cfg(not(feature = "db_trace"))]
+fn add_trace(_: &mut Connection) {
 }

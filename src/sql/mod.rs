@@ -81,6 +81,17 @@ pub fn insert_project(conn: &Connection, project: &mut models::Project) -> rusql
      Ok(())
 }
 
+pub fn update_project(conn: &Connection, project: &mut models::Project) -> rusqlite::Result<()> {
+    let changed = try!(conn.execute("UPDATE projects SET name = $1, start = $2, end = $3, sensor1_name = $4, sensor2_name = $5, created_at = $6, updated_at = $7 WHERE id = $8",
+                 &[&project.name, &project.start, &project.end, &project.sensor1_name, &project.sensor2_name, &project.created_at, &project.updated_at, &project.id]));
+
+    if changed == 1 {
+        Ok(())
+    } else {
+        Err(rusqlite::Error::StatementChangedRows(changed))
+    }
+}
+
 pub fn get_projects(conn: &Connection) -> rusqlite::Result<Vec<models::Project>> {
     let mut stmt = try!(conn.prepare("SELECT id, name, start, end, sensor1_name, sensor2_name, created_at, updated_at FROM projects ORDER BY created_at DESC"));
     let project_iter = try!(stmt.query_map(&[], |row| {

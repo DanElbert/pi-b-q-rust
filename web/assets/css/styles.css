@@ -1,6 +1,6 @@
 
 #header {
-  background-color: $brand-primary;
+  background-color: #e95420;
   color: #fff;
 }
 
@@ -29,11 +29,11 @@
 }
 
 #status.good {
-  color: $brand-success;
+  color: #38B44A;
 }
 
 #status.bad {
-  color: $brand-info;
+  color: #772953;
 }
 
 #chart {

@@ -11,9 +11,9 @@ use router::Router;
 use rusqlite;
 use rustc_serialize;
 use rustc_serialize::json::{ToJson};
-use std::cmp;
 use std::collections::HashMap;
-use std::hash;
+use std::error::Error;
+use std::fmt;
 use std::io::Read;
 use url;
 
@@ -24,16 +24,28 @@ use pibq::models::{Project};
 use super::view_models;
 use super::AppDb;
 
-trait DefaultValue<K, V> {
-    fn remove_or_default(&mut self, key: &K, default: V) -> V;
+#[derive(Clone, Debug)]
+struct WebError {
+    msg: String
 }
 
-impl<K, V> DefaultValue<K, V> for HashMap<K, V> where K: cmp::Eq, K: hash::Hash {
-    fn remove_or_default(&mut self, key: &K, default: V) -> V {
-        match self.remove(key) {
-            None => default,
-            Some(v) => v
+impl WebError {
+    fn new(msg: &str) -> WebError {
+        WebError {
+            msg: msg.to_string()
         }
+    }
+}
+
+impl Error for WebError {
+    fn description(&self) -> &str {
+        &self.msg
+    }
+}
+
+impl fmt::Display for WebError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+        self.description().fmt(f)
     }
 }
 
@@ -105,26 +117,34 @@ fn parse_query(request: &mut Request) -> IronResult<HashMap<String, String>> {
     Ok(map)
 }
 
-pub fn projects_index(request: &mut Request) -> IronResult<Response> {
-    let conn = try!(get_connection(request));
-    let projects = try!(db_unwrap(sql::get_projects(&conn)));
-    let model = view_models::ProjectIndex::new("Projects", projects);
+fn get_project_from_route(request: &mut Request, conn: &rusqlite::Connection) -> IronResult<Project> {
+    let mut project = None;
+    match request.extensions.get::<Router>().unwrap().find("id") {
+        Some(id) => {
+            match id.parse::<i64>() {
+                Err(e) => return Err(IronError::new(e, status::InternalServerError)),
+                Ok(id) => {
+                    project = match sql::get_project(&conn, id) {
+                        Err(e) => return Err(IronError::new(e, status::InternalServerError)),
+                        Ok(p) => { p }
+                    }
+                }
+            }
+        },
+        _ => {}
+    }
 
-    render_template("projects", model)
+    match project {
+        Some(p) => {
+            Ok(p)
+        },
+        None => {
+            Err(IronError::new(WebError::new("not found"), status::NotFound))
+        }
+    }
 }
 
-pub fn new_project(_: &mut Request) -> IronResult<Response> {
-    let model = view_models::ProjectEdit::new("Create Project", None, vec![]);
-
-    render_template("edit_project", model)
-}
-
-pub fn create_project(request: &mut Request) -> IronResult<Response> {
-    let mut data = try!(parse_body(request));
-    let mut project = Project::default();
-
-    let mut errors: Vec<String> = vec![];
-
+fn assign_project_fields(project: &mut Project, data: &mut HashMap<String, String>, errors: &mut Vec<String>) {
     match data.remove("name") {
         Some(ref str) if str.len() > 0 => {
             project.name = str.to_string();
@@ -172,6 +192,30 @@ pub fn create_project(request: &mut Request) -> IronResult<Response> {
         }
     }
 
+}
+
+pub fn projects_index(request: &mut Request) -> IronResult<Response> {
+    let conn = try!(get_connection(request));
+    let projects = try!(db_unwrap(sql::get_projects(&conn)));
+    let model = view_models::ProjectIndex::new("Projects", projects);
+
+    render_template("projects", model)
+}
+
+pub fn new_project(_: &mut Request) -> IronResult<Response> {
+    let model = view_models::ProjectEdit::new("Create Project", None, vec![]);
+
+    render_template("edit_project", model)
+}
+
+pub fn create_project(request: &mut Request) -> IronResult<Response> {
+    let mut data = try!(parse_body(request));
+    let mut project = Project::default();
+
+    let mut errors: Vec<String> = vec![];
+
+    assign_project_fields(&mut project, &mut data, &mut errors);
+
     if errors.len() > 0 {
         let model = view_models::ProjectEdit::new("Create Project", Some(project), errors);
         return render_template("edit_project", model);
@@ -180,101 +224,76 @@ pub fn create_project(request: &mut Request) -> IronResult<Response> {
         try!(db_unwrap(sql::insert_project(&conn, &mut project)));
         return redirect("/");
     }
-
 }
 
 pub fn show_project(request: &mut Request) -> IronResult<Response> {
-    let mut resp = Response::new();
-    let mut project: Option<Project> = None;
+    let conn = try!(get_connection(request));
+    let project = try!(get_project_from_route(request, &conn));
 
-    let pool = request.get::<persistent::Read<AppDb>>().unwrap();
-    let conn: SqlitePooledConnection = pool.get().unwrap();
-
-    match request.extensions.get::<Router>().unwrap().find("id") {
-        Some(id) => {
-            let id = id.parse::<i64>().unwrap();
-            project = match sql::get_project(&conn, id) {
-                Err(e) => return Err(IronError::new(e, status::InternalServerError)),
-                Ok(p) => { p }
-            }
-        },
-        _ => {}
-    }
-
-    match project {
-        Some(p) => {
-            let model = view_models::ProjectEdit::new("Project", Some(p), vec![]);
-            resp.set_mut(Template::new("show_project", model)).set_mut(status::Ok);
-        },
-        None => {
-            resp.set_mut(status::NotFound);
-        }
-    }
-
-    Ok(resp)
+    let model = view_models::ProjectEdit::new("Project", Some(project), vec![]);
+    render_template("show_project", model)
 }
 
-pub fn edit_project(_: &mut Request) -> IronResult<Response> {
-    Ok(Response::with(status::Ok).set("edit project"))
+pub fn edit_project(request: &mut Request) -> IronResult<Response> {
+    let conn = try!(get_connection(request));
+    let project = try!(get_project_from_route(request, &conn));
+
+    let model = view_models::ProjectEdit::new("Edit Project", Some(project), vec![]);
+    render_template("edit_project", model)
 }
 
-pub fn update_project(_: &mut Request) -> IronResult<Response> {
-    Ok(Response::with(status::Ok).set("update project"))
+pub fn update_project(request: &mut Request) -> IronResult<Response> {
+    let mut data = try!(parse_body(request));
+    let conn = try!(get_connection(request));
+    let mut project = try!(get_project_from_route(request, &conn));
+
+    let mut errors: Vec<String> = vec![];
+
+    assign_project_fields(&mut project, &mut data, &mut errors);
+
+    if errors.len() > 0 {
+        let model = view_models::ProjectEdit::new("Edit Project", Some(project), errors);
+        return render_template("edit_project", model);
+    } else {
+        project.updated_at = Local::now();
+        try!(db_unwrap(sql::update_project(&conn, &mut project)));
+        return redirect("/");
+    }
 }
 
 pub fn project_data(request: &mut Request) -> IronResult<Response> {
     let mut resp = Response::new();
-    let mut project: Option<Project> = None;
 
-    let pool = request.get::<persistent::Read<AppDb>>().unwrap();
-    let conn: SqlitePooledConnection = pool.get().unwrap();
+    let conn = try!(get_connection(request));
+    let project = try!(get_project_from_route(request, &conn));
 
-    match request.extensions.get::<Router>().unwrap().find("id") {
-        Some(id) => {
-            let id = id.parse::<i64>().unwrap();
-            project = match sql::get_project(&conn, id) {
-                Err(e) => return Err(IronError::new(e, status::InternalServerError)),
-                Ok(p) => { p }
+    let mut query = try!(parse_query(request));
+
+    let after = match query.remove("after") {
+        None => { None },
+        Some(ref str) if str.len() == 0 => { None },
+        Some(str) => {
+            match parse_date(&str) {
+                Err(e) => { return Err(e) },
+                Ok(dt) => { Some(dt) }
             }
-        },
-        _ => {}
-    }
-
-    match project {
-        Some(p) => {
-            let mut query = try!(parse_query(request));
-
-            let after = match query.remove("after") {
-                None => { None },
-                Some(ref str) if str.len() == 0 => { None },
-                Some(str) => {
-                    match parse_date(&str) {
-                        Err(e) => { return Err(e) },
-                        Ok(dt) => { Some(dt) }
-                    }
-                }
-            };
-
-            let readings = try!(db_unwrap(sql::get_project_readings(&conn, &p, after)));
-            let status = try!(db_unwrap(sql::get_latest_connection_status(&conn)));
-
-            let connected = match status {
-                Some(s) => s.is_connect,
-                None => false
-            };
-
-            let model = view_models::ProjectReadings::new(p, connected, readings);
-            let jsonstr = match rustc_serialize::json::encode(&model.to_json()) {
-                Err(e) => return Err(IronError::new(e, status::InternalServerError)),
-                Ok(str) => str
-            };
-
-            resp.set_mut(jsonstr).set_mut(status::Ok);
-        },
-        None => {
-            resp.set_mut(status::NotFound);
         }
-    }
+    };
 
+    let readings = try!(db_unwrap(sql::get_project_readings(&conn, &project, after)));
+    let status = try!(db_unwrap(sql::get_latest_connection_status(&conn)));
+
+    let connected = match status {
+        Some(s) => s.is_connect,
+        None => false
+    };
+
+    let model = view_models::ProjectReadings::new(project, connected, readings);
+    let jsonstr = match rustc_serialize::json::encode(&model.to_json()) {
+        Err(e) => return Err(IronError::new(e, status::InternalServerError)),
+        Ok(str) => str
+    };
+
+    resp.set_mut(jsonstr).set_mut(status::Ok);
     Ok(resp)
 }

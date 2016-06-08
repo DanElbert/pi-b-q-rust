@@ -1,4 +1,5 @@
 {{#partial page}}
+<div class="container-fluid">
 
 <div id="header" class="row">
   <div class="col-xs-4 col-sm-2 col-md-2">
@@ -28,10 +29,11 @@
 
 
 
-<div id="chart_row" class="row">
+<div id="chart_row row">
   <div id="chart"></div>
 </div>
 
+</div>
 <script type="text/javascript">
 
   var data = null;
@@ -48,7 +50,7 @@
     $.ajax({
       dataType: "json",
       url: '/projects/{{project.id}}/data.json',
-      data: {after: newestTimestamp},
+      data: {after: (newestTimestamp ? moment(newestTimestamp).format("Y-MM-DD HH:mm:ss") : '')},
       success: function (json) {
         processData(json);
         setTimeout(renewData, 2000);

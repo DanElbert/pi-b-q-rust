@@ -1,4 +1,5 @@
 use chrono::datetime::DateTime;
+use chrono::duration::Duration;
 use chrono::offset::local::Local;
 use chrono::offset::TimeZone;
 use rustc_serialize::Encodable;
@@ -32,7 +33,7 @@ impl<Tz> CustomToJson for DateTime<Tz>
     }
 }
 
-#[derive(RustcEncodable, RustcDecodable)]
+#[derive(RustcEncodable, RustcDecodable, Debug)]
 pub struct ConnectionStatus {
     pub id: i64,
     pub is_connect: bool,
@@ -59,7 +60,7 @@ impl DbObject for ConnectionStatus {
     }
 }
 
-#[derive(RustcEncodable, RustcDecodable)]
+#[derive(RustcEncodable, RustcDecodable, Debug)]
 pub struct Project {
     pub id: i64,
     pub name: String,
@@ -86,7 +87,7 @@ impl Project {
     }
 
     pub fn default() -> Project {
-        Self::new("".to_string(), Local::now(), Local::now(), "".to_string(), "".to_string())
+        Self::new("".to_string(), Local::now(), Local::now() + Duration::hours(12), "".to_string(), "".to_string())
     }
 }
 
@@ -112,7 +113,7 @@ impl ToJson for Project {
     }
 }
 
-#[derive(RustcEncodable, RustcDecodable)]
+#[derive(RustcEncodable, RustcDecodable, Debug)]
 pub struct Reading {
     pub id: i64,
     pub value1: Option<f64>,
@@ -136,7 +137,7 @@ impl ToJson for Reading {
         let mut m: BTreeMap<String, Json> = BTreeMap::new();
 
         m.insert("value1".to_string(), self.value1.to_json());
-        m.insert("value2".to_string(), self.value1.to_json());
+        m.insert("value2".to_string(), self.value2.to_json());
         m.insert("timestamp".to_string(), date_to_json(&self.timestamp));
 
         m.to_json()
