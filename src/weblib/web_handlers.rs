@@ -264,7 +264,7 @@ pub fn project_data(request: &mut Request) -> IronResult<Response> {
             };
 
             let model = view_models::ProjectReadings::new(p, connected, readings);
-            let jsonstr = match rustc_serialize::json::encode(&model) {
+            let jsonstr = match rustc_serialize::json::encode(&model.to_json()) {
                 Err(e) => return Err(IronError::new(e, status::InternalServerError)),
                 Ok(str) => str
             };
