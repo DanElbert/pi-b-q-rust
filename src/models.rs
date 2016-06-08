@@ -1,5 +1,32 @@
 use chrono::datetime::DateTime;
 use chrono::offset::local::Local;
+use chrono::offset::TimeZone;
+use rustc_serialize::Encodable;
+use rustc_serialize::json::{self, Json, ToJson};
+use std::collections::BTreeMap;
+
+pub trait DbObject {
+    fn get_id(&self) -> i64;
+
+    fn is_new(&self) -> bool {
+        self.get_id() == 0
+    }
+
+    fn is_persisten(&self) -> bool {
+        !self.is_new()
+    }
+}
+
+pub trait CustomToJson {
+    fn to_json(&self) -> Json;
+}
+
+impl<Tz> CustomToJson for DateTime<Tz>
+    where Tz: TimeZone+Encodable, Tz::Offset: Encodable {
+    fn to_json(&self) -> Json {
+        json::encode(self).unwrap().to_json()
+    }
+}
 
 pub struct ConnectionStatus {
     pub id: i64,
@@ -18,6 +45,12 @@ impl ConnectionStatus {
             info: None,
             created_at: Local::now()
         }
+    }
+}
+
+impl DbObject for ConnectionStatus {
+    fn get_id(&self) -> i64 {
+        self.id
     }
 }
 
@@ -45,6 +78,32 @@ impl Project {
             updated_at: Local::now()
         }
     }
+
+    pub fn default() -> Project {
+        Self::new("".to_string(), Local::now(), Local::now(), "".to_string(), "".to_string())
+    }
+}
+
+impl DbObject for Project {
+    fn get_id(&self) -> i64 {
+        self.id
+    }
+}
+
+impl ToJson for Project {
+    fn to_json(&self) -> Json {
+        let mut m: BTreeMap<String, Json> = BTreeMap::new();
+        m.insert("id".to_string(), self.id.to_json());
+        m.insert("name".to_string(), self.name.to_json());
+        m.insert("start".to_string(), self.start.to_json());
+        m.insert("end".to_string(), self.end.to_json());
+        m.insert("sensor1_name".to_string(), self.sensor1_name.to_json());
+        m.insert("sensor2_name".to_string(), self.sensor2_name.to_json());
+        m.insert("created_at".to_string(), self.created_at.to_json());
+        m.insert("updated_at".to_string(), self.updated_at.to_json());
+
+        m.to_json()
+    }
 }
 
 pub struct Reading {
@@ -62,5 +121,11 @@ impl Reading {
             value2: None,
             timestamp: Local::now()
         }
+    }
+}
+
+impl DbObject for Reading {
+    fn get_id(&self) -> i64 {
+        self.id
     }
 }

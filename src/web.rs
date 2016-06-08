@@ -1,68 +1,126 @@
-extern crate iron;
-extern crate router;
-extern crate staticfile;
-extern crate mount;
-extern crate handlebars_iron;
-extern crate rustc_serialize;
-
+extern crate chrono;
 extern crate getopts;
+extern crate handlebars_iron;
+extern crate iron;
+extern crate logger;
+extern crate mount;
+extern crate persistent;
+extern crate r2d2;
+extern crate router;
 extern crate rusqlite;
+extern crate rustc_serialize;
+extern crate staticfile;
+extern crate url;
 
 extern crate pibq;
 
-use iron::status;
+mod weblib;
+
+use getopts::Options;
+use handlebars_iron::{HandlebarsEngine, DirectorySource};
+use iron::{AfterMiddleware};
 use iron::prelude::*;
 use mount::Mount;
 use router::Router;
 use staticfile::Static;
-use handlebars_iron::{Template, HandlebarsEngine, DirectorySource};
-
-use rustc_serialize::json::{self, ToJson, Json};
-
-use std::collections::BTreeMap;
+use std::env;
 use std::path::Path;
 
-use pibq::sql;
-use pibq::models::{ConnectionStatus, Reading};
 
-struct Bean {
-    str: String
+use pibq::sql;
+use pibq::sql::pool::{SqlitePool};
+use weblib::AppDb;
+use weblib::web_handlers;
+
+struct ErrorHandler;
+
+impl AfterMiddleware for ErrorHandler {
+    fn catch(&self, _: &mut Request, err: IronError) -> IronResult<Response> {
+        println!("Error Encountered: {:?}", err.error);
+        Ok(err.response)
+    }
 }
 
-impl ToJson for Bean {
-    fn to_json(&self) -> Json {
-        let mut m: BTreeMap<String, Json> = BTreeMap::new();
-        m.insert("str".to_string(), self.str.to_json());
-        m.to_json()
+struct WebServer {
+    sql_pool: SqlitePool,
+    asset_path: String,
+    template_path: String
+}
+
+impl WebServer {
+    pub fn new(sql_pool: SqlitePool, web_root: &str) -> Self {
+        WebServer {
+            sql_pool: sql_pool,
+            asset_path: web_root.to_string() + "/assets/",
+            template_path: web_root.to_string() + "/templates/"
+        }
     }
+
+    pub fn start(&mut self) {
+        let mut router = Router::new();
+        router.get("/", |request: &mut Request| { web_handlers::projects_index(request) });
+        router.get("/projects/new", |request: &mut Request| { web_handlers::new_project(request) });
+        router.put("/projects", |request: &mut Request| { web_handlers::create_project(request) });
+        router.get("/projects/:id", |request: &mut Request| { web_handlers::show_project(request) });
+        router.get("/projects/:id/edit", |request: &mut Request| { web_handlers::edit_project(request) });
+        router.post("/projects/:id", |request: &mut Request| { web_handlers::update_project(request) });
+
+        let mut mount = Mount::new();
+        mount
+            .mount("/", router)
+            .mount("/assets/", Static::new(Path::new(&self.asset_path)));
+
+        let mut template_engine = HandlebarsEngine::new();
+        template_engine.add(Box::new(DirectorySource::new(&self.template_path, ".hbs")));
+
+        if let Err(r) = template_engine.reload() {
+            panic!("{}", r);
+        }
+
+        let (logger_before, logger_after) = logger::Logger::new(None);
+
+        let mut chain = Chain::new(mount);
+        chain.link(persistent::Read::<AppDb>::both(self.sql_pool.clone()));
+        chain.link_after(template_engine);
+        chain.link_after(ErrorHandler);
+        chain.link_before(logger_before);
+        chain.link_after(logger_after);
+
+        Iron::new(chain).http("0.0.0.0:3000").unwrap();
+    }
+}
+
+fn print_usage(program: &str, opts: Options) {
+    let brief = format!("Usage: {} [options]", program);
+    print!("{}", opts.usage(&brief));
 }
 
 fn main() {
-    let mut router = Router::new();
-    router.get("/", handler);
+    let args: Vec<String> = env::args().collect();
+    let program = args[0].clone();
 
-    let mut mount = Mount::new();
-    mount
-        .mount("/", router)
-        .mount("/assets/", Static::new(Path::new("web/assets")));
-
-    let mut template_engine = HandlebarsEngine::new();
-    template_engine.add(Box::new(DirectorySource::new("web/templates/", ".hbs")));
-
-    if let Err(r) = template_engine.reload() {
-        panic!("{}", r);
+    let mut opts = Options::new();
+    opts.optopt("d", "dbfile", "sqlite DB file", "FILE");
+    opts.optopt("w", "webroot", "root of web files", "DIR");
+    opts.optflag("h", "help", "print this help menu");
+    let matches = match opts.parse(&args[1..]) {
+        Ok(m) => { m }
+        Err(f) => {
+            println!("{}", f.to_string());
+            print_usage(&program, opts);
+            return;
+        }
+    };
+    if matches.opt_present("h") {
+        print_usage(&program, opts);
+        return;
     }
 
-    let mut chain = Chain::new(mount);
-    chain.link_after(template_engine);
+    let dbfile = matches.opt_str("d").unwrap_or("pibq.sqlite".to_string());
+    let webroot = matches.opt_str("w").unwrap_or("web".to_string());
 
-    Iron::new(chain).http("0.0.0.0:3000").unwrap();
+    let db_pool = sql::get_pool(&dbfile, Some(5));
 
-    fn handler(_: &mut Request) -> IronResult<Response> {
-        let mut resp = Response::new();
-        let data = Bean { str: "hello world".to_string() };
-        resp.set_mut(Template::new("projects", data)).set_mut(status::Ok);
-        Ok(resp)
-        //Ok(Response::with((status::Ok, "OK")))
-    }
+    let mut w = WebServer::new(db_pool, &webroot);
+    w.start();
 }
