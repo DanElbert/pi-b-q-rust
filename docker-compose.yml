@@ -4,5 +4,10 @@ services:
   compiler:
     build: .
     image: arm7rust
+    entrypoint:
+      - "cargo"
+      - "build"
+      - "--target=armv7-unknown-linux-gnueabihf"
+      - "--release"
     volumes:
       - .:/code

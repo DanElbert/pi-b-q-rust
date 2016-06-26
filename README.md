@@ -1,4 +1,16 @@
-re-write of this project in Rust: https://github.com/DanElbert/pi-b-q
+# pi-b-q
+
+Project to programatically interact with a Thermoworks BlueTherm thermomoter and provide a web interface that displays temperature over time from a Raspberry Pi
+
+## Installation
+
+1. Clone this repo onto a build machine (anything that'll run Docker)
+1. Also clone this repo onto the Raspberry Pi
+1. Run docker-compose to cross compile the binaries
+1. `scp` the `web` and `harvester` binaries to the dist folder in the project tree on the Pi (binaries will be in `target/armv7-unknown-linux-gnueabihf/release`)
+1. Run the install script in the root of the repo
+1. Update /etc/default/pibq to reflect your BT config
+
 
 pi-b-q is released under the MIT License.
 
