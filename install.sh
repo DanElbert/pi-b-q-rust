@@ -1,7 +1,7 @@
 #!/bin/bash
 
 [ "$UID" -ne 0 ] && echo "You should run this script as a root " && exit 1
-[ -x dist/web ] || [ -x dist/harvester ] || echo "Executables not found in dist/" && exit 1
+[ ! -x dist/web ] || [ ! -x dist/harvester ] && echo "Executables not found in dist/" && exit 1
 
 apt-get update
 apt-get install -y vim bluetooth bluez bluez-tools pi-bluetooth
