@@ -23,16 +23,7 @@ STDERR="/var/log/pibq/harvester.err"
 # Source the env file if it exists
 [ -f "$ENV_FILE" ] && . $ENV_FILE
 
-COMMAND_ARGS="-s $SERIAL"
-
-HARVESTER="source /usr/local/rvm/scripts/rvm && rvm use 2.2.1 && bundle exec /var/www/pi-b-q/bin/harvester_control"
-APP_DIR="/var/www/pi-b-q"
-APP_NAME="pi-b-q harvester"
-USER="pi"
-
-
-
-
+COMMAND_ARGS="-s ${SERIAL:-/dev/rfcomm0}"
 
 case "$1" in
     start)
@@ -45,7 +36,7 @@ case "$1" in
             "$DAEMON" --respawn \
                 --name "$NAME" --pidfiles "$PIDDIR" \
                 --user $USER --chdir "$CHDIR" \
-                --stdout "$STDOUT" --stderr "$STDERR"
+                --stdout "$STDOUT" --stderr "$STDERR" \
                 -- \
                 "$COMMAND" $COMMAND_ARGS
             echo done.

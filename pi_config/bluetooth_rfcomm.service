@@ -1,0 +1,11 @@
+[Unit]
+Description=Binds RFComm Port
+After=bluetooth.service
+Requires=bluetooth.service
+
+[Service]
+EnvironmentFile=/etc/default/pibq
+ExecStart=/usr/bin/rfcomm bind $BT_DEV $BT_ADDRESS
+
+[Install]
+WantedBy=multi-user.target

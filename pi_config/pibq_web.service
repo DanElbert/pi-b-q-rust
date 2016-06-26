@@ -1,0 +1,14 @@
+[Unit]
+Description=Pi BQ Web Server
+After=network.target pibq_harvester.service
+
+[Service]
+EnvironmentFile=/etc/default/pibq
+WorkingDirectory=/opt/pibq
+User=pi
+StandardOutput=journal
+StandardError=journal
+ExecStart=/opt/pibq/pibq_web $WEB_OPTS
+
+[Install]
+WantedBy=multi-user.target

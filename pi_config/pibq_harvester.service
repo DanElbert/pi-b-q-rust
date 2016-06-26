@@ -1,0 +1,15 @@
+[Unit]
+Description=Pi BQ Harvester
+After=bluetooth_rfcomm.service
+Requires=bluetooth_rfcomm.service
+
+[Service]
+EnvironmentFile=/etc/default/pibq
+WorkingDirectory=/opt/pibq
+User=pi
+StandardOutput=journal
+StandardError=journal
+ExecStart=/opt/pibq/pibq_harvester -s $BT_DEV $HARVESTER_OPTS
+
+[Install]
+WantedBy=multi-user.target
