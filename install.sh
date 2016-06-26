@@ -6,10 +6,10 @@
 apt-get update
 apt-get install -y vim bluetooth bluez bluez-tools pi-bluetooth
 
-mkdir -p /opt/pibq
+mkdir -p /opt/pibq/bin
 
 cp -R web migrations /opt/pibq
-cp dist/web dist/harvester /opt/pibq
+cp dist/web dist/harvester /opt/pibq/bin
 
 chown -R pi opt/pibq
 
