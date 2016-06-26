@@ -18,4 +18,4 @@ RUN mkdir -p /code
 COPY . /code
 WORKDIR /code
 
-CMD ["cargo", "build", "--target=armv7-unknown-linux-gnueabihf"]
+ENTRYPOINT ["cargo", "build", "--target=armv7-unknown-linux-gnueabihf"]

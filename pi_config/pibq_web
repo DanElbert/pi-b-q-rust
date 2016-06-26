@@ -1,0 +1,88 @@
+#!/bin/bash
+### BEGIN INIT INFO
+# Provides:          pibq_harvester
+# Required-Start:    $remote_fs $syslog
+# Required-Stop:     $remote_fs $syslog
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# X-Interactive:     true
+# Short-Description: Start/stop pibq_harvester daemon
+### END INIT INFO
+
+NAME=pibq_harvester
+COMMAND="/opt/pibq/harvester"
+ENV_FILE="/etc/default/pibq_harvester"
+DAEMON="/usr/bin/daemon"
+
+USER="pi"
+CHDIR="/opt/pibq"
+PIDDIR="/var/run/"
+STDOUT="/var/log/pibq/harvester.log"
+STDERR="/var/log/pibq/harvester.err"
+
+# Source the env file if it exists
+[ -f "$ENV_FILE" ] && . $ENV_FILE
+
+COMMAND_ARGS="-s $SERIAL"
+
+HARVESTER="source /usr/local/rvm/scripts/rvm && rvm use 2.2.1 && bundle exec /var/www/pi-b-q/bin/harvester_control"
+APP_DIR="/var/www/pi-b-q"
+APP_NAME="pi-b-q harvester"
+USER="pi"
+
+
+
+
+
+case "$1" in
+    start)
+        # This if statement isn't strictly necessary but it's user friendly
+        if "$DAEMON" --running --name "$NAME" --pidfiles "$PIDDIR"
+        then
+            echo "$NAME is already running."
+        else
+            echo -n "Starting $NAME..."
+            "$DAEMON" --respawn \
+                --name "$NAME" --pidfiles "$PIDDIR" \
+                --user $USER --chdir "$CHDIR" \
+                --stdout "$STDOUT" --stderr "$STDERR"
+                -- \
+                "$COMMAND" $COMMAND_ARGS
+            echo done.
+        fi
+        ;;
+
+    stop)
+        # This if statement isn't strictly necessary but it's user friendly
+        if "$DAEMON" --running --name "$NAME" --pidfiles "$PIDDIR"
+        then
+            echo -n "Stopping $NAME..."
+            "$DAEMON" --stop --name "$NAME" --pidfiles "$PIDDIR"
+            echo done.
+        else
+            echo "$NAME is not running."
+        fi
+        ;;
+
+    restart|reload)
+        if "$DAEMON" --running --name "$NAME" --pidfiles "$PIDDIR"
+        then
+            echo -n "Restarting $NAME..."
+            "$DAEMON" --restart --name "$NAME" --pidfiles "$PIDDIR"
+            echo done.
+        else
+            echo "$NAME is not running."
+            exit 1
+        fi
+        ;;
+
+    status)
+        "$DAEMON" --running --name "$NAME" --pidfiles "$PIDDIR" --verbose
+        ;;
+
+    *)
+        echo "usage: $0 <start|stop|restart|reload|status>" >&2
+        exit 1
+esac
+
+exit 0
