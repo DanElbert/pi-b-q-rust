@@ -11,7 +11,7 @@ mkdir -p /opt/pibq/bin
 cp -R web migrations /opt/pibq
 cp dist/web dist/harvester /opt/pibq/bin
 
-chown -R pi opt/pibq
+chown -R pi /opt/pibq
 
 cp pi_config/bluetooth_rfcomm.service /lib/systemd/system/
 cp pi_config/pibq_web.service /lib/systemd/system/
