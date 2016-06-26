@@ -4,6 +4,7 @@ After=bluetooth.service
 Requires=bluetooth.service
 
 [Service]
+Type=oneshot
 EnvironmentFile=/etc/default/pibq
 ExecStart=/usr/bin/rfcomm bind $BT_DEV $BT_ADDRESS
 
