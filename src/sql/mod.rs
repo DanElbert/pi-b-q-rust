@@ -2,7 +2,7 @@ mod migrations;
 pub mod pool;
 
 use chrono::datetime::DateTime;
-use chrono::offset::TimeZone;
+//use chrono::offset::TimeZone;
 use chrono::offset::local::Local;
 use std::path::Path;
 use std::time::Duration;

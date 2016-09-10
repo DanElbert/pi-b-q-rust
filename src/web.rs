@@ -60,13 +60,13 @@ impl WebServer {
 
     pub fn start(&mut self) {
         let mut router = Router::new();
-        router.get("/", |request: &mut Request| { web_handlers::projects_index(request) });
-        router.get("/projects/new", |request: &mut Request| { web_handlers::new_project(request) });
-        router.post("/projects/new", |request: &mut Request| { web_handlers::create_project(request) });
-        router.get("/projects/:id", |request: &mut Request| { web_handlers::show_project(request) });
-        router.get("/projects/:id/edit", |request: &mut Request| { web_handlers::edit_project(request) });
-        router.post("/projects/:id", |request: &mut Request| { web_handlers::update_project(request) });
-        router.get("/projects/:id/data.json", |request: &mut Request| { web_handlers::project_data(request) });
+        router.get("/", |request: &mut Request| { web_handlers::projects_index(request) }, "index");
+        router.get("/projects/new", |request: &mut Request| { web_handlers::new_project(request) }, "new_project");
+        router.post("/projects/new", |request: &mut Request| { web_handlers::create_project(request) }, "create_project");
+        router.get("/projects/:id", |request: &mut Request| { web_handlers::show_project(request) }, "project");
+        router.get("/projects/:id/edit", |request: &mut Request| { web_handlers::edit_project(request) }, "edit_project");
+        router.post("/projects/:id", |request: &mut Request| { web_handlers::update_project(request) }, "update_project");
+        router.get("/projects/:id/data.json", |request: &mut Request| { web_handlers::project_data(request) }, "project_data");
 
         let mut mount = Mount::new();
         mount

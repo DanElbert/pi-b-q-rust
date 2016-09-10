@@ -29,15 +29,15 @@ bitflags = "*"
 libc = "*"
 getopts = "0.2.14"
 serial = "0.3"
-iron = "0.3.0"
-router = "0.1.1"
-mount = "0.1.0"
-handlebars-iron = "0.15.2"
+iron = "0.4.0"
+router = "0.4.0"
+mount = "0.2.0"
+handlebars-iron = "0.18.0"
 url = "*"
-persistent = "0.1.0"
+persistent = "0.2.0"
 rustc-serialize = "*"
 r2d2 = "*"
-logger = "0.0.3"
+logger = "0.1.0"
 
 [dependencies.rusqlite]
 version = "0.7.3"
@@ -48,5 +48,5 @@ version = "0.2"
 features = ["rustc-serialize"]
 
 [dependencies.staticfile]
-version = "0.2.0"
+version = "0.3.0"
 features = ["cache"]
